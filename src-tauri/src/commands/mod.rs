@@ -1,0 +1,9 @@
+pub mod caisse;
+pub mod print;
+pub mod cashiers;
+pub mod catalogue;
+pub mod journal;
+pub mod open_orders;
+pub mod settings;
+pub mod tables;
+pub mod transactions;

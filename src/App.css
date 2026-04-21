@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/* =====================================================
+   DESIGN TOKENS — source : mockup UX v1
+   Palette Material You dark, mode sombre permanent.
+   ===================================================== */
+@theme {
+  /* --- Surface scale --- */
+  --color-background:                #131313;
+  --color-surface:                   #131313;
+  --color-surface-dim:               #131313;
+  --color-surface-bright:            #393939;
+  --color-surface-container-lowest:  #0e0e0e;
+  --color-surface-container-low:     #1c1b1b;
+  --color-surface-container:         #201f1f;
+  --color-surface-container-high:    #2a2a2a;
+  --color-surface-container-highest: #353534;
+  --color-surface-variant:           #353534;
+  --color-surface-tint:              #b4c5ff;
+
+  /* --- On-surface --- */
+  --color-on-surface:         #e5e2e1;
+  --color-on-surface-variant: #c3c6d7;
+  --color-on-background:      #e5e2e1;
+
+  /* --- Primary (bleu lavande) --- */
+  --color-primary:               #b4c5ff;
+  --color-on-primary:            #002a78;
+  --color-primary-container:     #2563eb;
+  --color-on-primary-container:  #eeefff;
+  --color-primary-fixed:         #dbe1ff;
+  --color-primary-fixed-dim:     #b4c5ff;
+  --color-inverse-primary:       #0053db;
+
+  /* --- Secondary (vert validation) --- */
+  --color-secondary:              #4ae176;
+  --color-on-secondary:           #003915;
+  --color-secondary-container:    #00b954;
+  --color-on-secondary-container: #004119;
+  --color-secondary-fixed:        #6bff8f;
+  --color-secondary-fixed-dim:    #4ae176;
+
+  /* --- Tertiary (rouge corail) --- */
+  --color-tertiary:              #ffb3ad;
+  --color-on-tertiary:           #68000a;
+  --color-tertiary-container:    #cf2c30;
+  --color-on-tertiary-container: #ffecea;
+  --color-tertiary-fixed:        #ffdad7;
+  --color-tertiary-fixed-dim:    #ffb3ad;
+
+  /* --- Error --- */
+  --color-error:              #ffb4ab;
+  --color-on-error:           #690005;
+  --color-error-container:    #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* --- Outline --- */
+  --color-outline:         #8d90a0;
+  --color-outline-variant: #434655;
+
+  /* --- Inverse --- */
+  --color-inverse-surface:    #e5e2e1;
+  --color-inverse-on-surface: #313030;
+
+  /* --- Border radius (design system) --- */
+  --radius-sm:   0.125rem;  /* 2px  */
+  --radius:      0.125rem;  /* 2px  */
+  --radius-md:   0.25rem;   /* 4px  */
+  --radius-lg:   0.25rem;   /* 4px  */
+  --radius-xl:   0.5rem;    /* 8px  — cards, boutons */
+  --radius-2xl:  0.75rem;   /* 12px — badges, pills */
+  --radius-full: 0.75rem;   /* 12px — badges arrondis */
+
+  /* --- Typographie --- */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =====================================================
+   BASE
+   ===================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  /* NE PAS mettre overflow:hidden ici — bloque les clics sur macOS WKWebView */
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  /* touch-action sur body uniquement, pas sur html */
+  touch-action: manipulation;
+  overflow: hidden;
+  background-color: #131313;
+  color: #e5e2e1;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollbar discrète, style industriel */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #131313; }
+::-webkit-scrollbar-thumb { background: #353534; border-radius: 10px; }
+
+/* Désactive la sélection de texte sur les zones tactiles */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Print styles ─────────────────────────────────────────── */
+#print-area { display: none; }
+
+@media print {
+  body > #root > * { display: none !important; }
+  #print-area       { display: block !important; }
+
+  /* Receipt — narrow thermal-style column */
+  .receipt {
+    font-family: monospace;
+    font-size: 12px;
+    width: 72mm;
+    margin: 0 auto;
+    color: #000;
+  }
+  .receipt-header { text-align: center; margin-bottom: 4px; }
+  .receipt-header strong { font-size: 16px; display: block; margin-bottom: 2px; }
+  .receipt-sep { border-top: 1px dashed #000; margin: 6px 0; }
+  .receipt-lines { width: 100%; border-collapse: collapse; }
+  .receipt-lines td { padding: 1px 0; vertical-align: top; }
+  .receipt-totals { width: 100%; border-collapse: collapse; }
+  .receipt-totals td { padding: 1px 0; }
+  .receipt-total-line {
+    display: flex; justify-content: space-between;
+    font-size: 16px; font-weight: bold; margin: 4px 0;
+  }
+  .avoir-badge { font-weight: bold; text-align: center; }
+  .receipt-footer { text-align: center; font-size: 10px; margin-top: 6px; }
+  .receipt-hash { font-size: 9px; color: #666; margin-top: 2px; }
+  .right { text-align: right; white-space: nowrap; }
+
+  /* Rapport — A4 */
+  .rapport {
+    font-family: sans-serif;
+    font-size: 12px;
+    width: 180mm;
+    margin: 0 auto;
+    color: #000;
+  }
+  .rapport-header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 8px; }
+  .rapport-header h1 { font-size: 24px; margin: 0 0 4px; }
+  .rapport-meta { font-size: 11px; color: #444; }
+  .rapport section { margin-bottom: 16px; }
+  .rapport h2 { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #ccc; margin-bottom: 6px; padding-bottom: 2px; }
+  .rapport table { width: 100%; border-collapse: collapse; }
+  .rapport td, .rapport th { padding: 3px 6px; text-align: left; }
+  .rapport th { font-weight: bold; border-bottom: 1px solid #000; }
+  .rapport tr:last-child td { border-top: 1px solid #ccc; }
+  .rapport tr.total td { font-weight: bold; font-size: 14px; }
+  .rapport-footer { text-align: center; font-size: 10px; color: #666; margin-top: 24px; border-top: 1px solid #ccc; padding-top: 8px; }
+  .mono { font-family: monospace; }
+}
