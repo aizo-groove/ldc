@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Wifi, WifiOff, Loader2, MessageSquarePlus } from "lucide-react";
+import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Wifi, WifiOff, Loader2, MessageSquarePlus, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "./store";
 import type { BusinessProfile } from "@/types/settings";
@@ -162,6 +162,174 @@ function PrinterSection() {
   );
 }
 
+const LEGAL_FORMS = ["EI", "EURL", "SARL", "SAS", "SASU", "SNC", "SA", "Autre"];
+
+interface StoreInfo {
+  name:        string;
+  address:     string;
+  postal_code: string;
+  city:        string;
+  legal_form:  string;
+  siret:       string;
+  tva_number:  string;
+  phone:       string;
+  website:     string;
+}
+
+const EMPTY_INFO: StoreInfo = {
+  name: "", address: "", postal_code: "", city: "",
+  legal_form: "", siret: "", tva_number: "", phone: "", website: "",
+};
+
+function StoreInfoSection() {
+  const [info,  setInfo]  = useState<StoreInfo>(EMPTY_INFO);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      getSetting("store_name"),
+      getSetting("store_address"),
+      getSetting("store_postal_code"),
+      getSetting("store_city"),
+      getSetting("store_legal_form"),
+      getSetting("store_siret"),
+      getSetting("store_tva_number"),
+      getSetting("store_phone"),
+      getSetting("store_website"),
+    ]).then(([name, address, postal_code, city, legal_form, siret, tva_number, phone, website]) => {
+      setInfo({
+        name:        name        ?? "",
+        address:     address     ?? "",
+        postal_code: postal_code ?? "",
+        city:        city        ?? "",
+        legal_form:  legal_form  ?? "",
+        siret:       siret       ?? "",
+        tva_number:  tva_number  ?? "",
+        phone:       phone       ?? "",
+        website:     website     ?? "",
+      });
+    });
+  }, []);
+
+  const patch = (key: keyof StoreInfo, value: string) => {
+    setInfo((prev) => ({ ...prev, [key]: value }));
+    setSaved(false);
+  };
+
+  const save = async () => {
+    await Promise.all([
+      updateSetting("store_name",        info.name.trim()),
+      updateSetting("store_address",     info.address.trim()),
+      updateSetting("store_postal_code", info.postal_code.trim()),
+      updateSetting("store_city",        info.city.trim()),
+      updateSetting("store_legal_form",  info.legal_form.trim()),
+      updateSetting("store_siret",       info.siret.trim()),
+      updateSetting("store_tva_number",  info.tva_number.trim()),
+      updateSetting("store_phone",       info.phone.trim()),
+      updateSetting("store_website",     info.website.trim()),
+    ]);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const field = (
+    key: keyof StoreInfo,
+    label: string,
+    placeholder: string,
+    opts?: { hint?: string; monospace?: boolean }
+  ) => (
+    <div>
+      <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-1.5">
+        {label}
+      </label>
+      <input
+        value={info[key]}
+        onChange={(e) => patch(key, e.target.value)}
+        placeholder={placeholder}
+        className={cn(
+          "w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface placeholder:text-outline outline-none focus:ring-2 focus:ring-primary/30 transition-all",
+          opts?.monospace && "font-mono tracking-wider"
+        )}
+      />
+      {opts?.hint && <p className="text-[10px] text-outline mt-1">{opts.hint}</p>}
+    </div>
+  );
+
+  return (
+    <section>
+      <h2 className="text-[11px] font-black text-outline uppercase tracking-widest mb-4">Informations de l'établissement</h2>
+      <div className="bg-surface-container-low rounded-2xl p-5 space-y-4">
+
+        {/* Nom + forme juridique */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2">
+            {field("name", "Nom de l'établissement", "Le Petit Bistrot")}
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-1.5">
+              Forme juridique
+            </label>
+            <select
+              value={info.legal_form}
+              onChange={(e) => patch("legal_form", e.target.value)}
+              className="w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            >
+              <option value="">—</option>
+              {LEGAL_FORMS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Adresse */}
+        {field("address", "Adresse", "12 rue des Fleurs")}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            {field("postal_code", "Code postal", "75001", { monospace: true })}
+          </div>
+          <div className="col-span-2">
+            {field("city", "Ville", "Paris")}
+          </div>
+        </div>
+
+        {/* SIRET + TVA */}
+        <div className="grid grid-cols-2 gap-4">
+          {field("siret", "SIRET", "123 456 789 00012", {
+            monospace: true,
+            hint: "14 chiffres — obligatoire sur les tickets",
+          })}
+          {field("tva_number", "N° TVA intracommunautaire", "FR 12 123456789", {
+            monospace: true,
+            hint: "Laisser vide si non assujetti",
+          })}
+        </div>
+
+        {/* Téléphone + Site web */}
+        <div className="grid grid-cols-2 gap-4">
+          {field("phone",   "Téléphone",  "01 23 45 67 89")}
+          {field("website", "Site web",   "www.monbistrot.fr")}
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={save}
+            disabled={!info.name.trim() || !info.siret.trim()}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-40",
+              saved
+                ? "bg-secondary/20 text-secondary"
+                : "bg-primary text-on-primary hover:opacity-90 active:scale-95"
+            )}
+          >
+            {saved && <Check size={14} />}
+            {saved ? "Sauvegardé" : "Sauvegarder"}
+          </button>
+        </div>
+      </div>
+      <p className="text-[10px] text-outline mt-2">Ces informations apparaissent sur tous les tickets et rapports Z.</p>
+    </section>
+  );
+}
+
 export function SettingsView() {
   const { profile, setProfile } = useSettingsStore();
   const showFeedback = useFeedbackStore((s) => s.show);
@@ -174,6 +342,9 @@ export function SettingsView() {
           <h1 className="text-3xl font-black tracking-tight text-on-surface mb-1">Paramètres</h1>
           <p className="text-outline text-sm">Configurez le logiciel selon votre type d'établissement.</p>
         </div>
+
+        {/* ── Informations établissement ──────────────────── */}
+        <StoreInfoSection />
 
         {/* ── Profil commercial ────────────────────────────── */}
         <section>
@@ -234,6 +405,23 @@ export function SettingsView() {
             La gestion des caissiers est accessible depuis l'écran de connexion via le bouton
             <span className="font-bold text-on-surface"> « Gérer les caissiers »</span> (PIN responsable requis).
           </p>
+        </section>
+
+        {/* ── Soutenir ─────────────────────────────────────── */}
+        <section>
+          <h2 className="text-[11px] font-black text-outline uppercase tracking-widest mb-2">Soutenir le projet</h2>
+          <p className="text-sm text-outline mb-4">
+            LDC est gratuit et open-source. Si vous l'utilisez au quotidien, un café est toujours apprécié ☕
+          </p>
+          <a
+            href="https://ko-fi.com/aizogroove"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF5E5B] text-white text-xs font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all"
+          >
+            <Heart size={15} />
+            Offrir un café sur Ko-fi
+          </a>
         </section>
 
         {/* ── Feedback ─────────────────────────────────────── */}

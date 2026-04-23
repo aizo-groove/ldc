@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Printer, User, RefreshCw } from "lucide-react";
+import { Printer, User, RefreshCw, Sun, Moon } from "lucide-react";
+import { useSettingsStore } from "@/features/settings/store";
 
 interface TopBarProps {
   cashierName?: string;
@@ -21,6 +22,8 @@ function LiveClock() {
 }
 
 export function TopBar({ cashierName = "—", onSwitchCashier, onPrinterSettings }: TopBarProps) {
+  const { theme, setTheme } = useSettingsStore();
+
   return (
     <header className="fixed top-0 w-full h-16 flex justify-between items-center px-6 z-50 bg-surface-container-low">
       <h1 className="text-xl font-black text-on-surface tracking-tighter select-none">
@@ -35,6 +38,14 @@ export function TopBar({ cashierName = "—", onSwitchCashier, onPrinterSettings
           className="p-2 rounded-xl text-on-surface hover:bg-surface-container-high transition-colors active:scale-95 duration-100"
         >
           <Printer size={22} />
+        </button>
+
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label="Changer le thème"
+          className="p-2 rounded-xl text-on-surface hover:bg-surface-container-high transition-colors active:scale-95 duration-100"
+        >
+          {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
         <LiveClock />

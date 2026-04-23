@@ -127,13 +127,19 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
             </span>
           </button>
 
-          {/* Fidélité (placeholder) */}
-          <button className="flex-1 h-20 bg-surface-container-highest rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-surface-bright active:scale-[0.98] transition-all">
-            <Tag size={22} />
-            <span className="text-xs font-black uppercase tracking-widest">
-              Fidélité
+          {/* Fidélité (bientôt) */}
+          <div className="relative flex-1">
+            <button
+              disabled
+              className="w-full h-20 bg-surface-container-highest rounded-xl flex flex-col items-center justify-center gap-1 opacity-40 cursor-not-allowed"
+            >
+              <Tag size={22} />
+              <span className="text-xs font-black uppercase tracking-widest">Fidélité</span>
+            </button>
+            <span className="absolute -top-2 -right-2 bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full">
+              Bientôt
             </span>
-          </button>
+          </div>
 
           {/* PAYER */}
           <button

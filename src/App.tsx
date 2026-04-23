@@ -17,6 +17,7 @@ import { TableView } from "@/features/tables/TableView";
 import { PrintModal } from "@/features/print/PrintModal";
 import { PrintArea } from "@/features/print/PrintArea";
 import { FeedbackModal } from "@/features/feedback/FeedbackModal";
+import { UpdateBanner } from "@/features/updater/UpdateBanner";
 import { CashierSelectView } from "@/features/cashiers/CashierSelectView";
 import { createTransaction, deleteTableOrder, updateTableStatus } from "@/lib/tauri";
 import { useTablesStore } from "@/features/tables/store";
@@ -209,6 +210,7 @@ export default function App() {
       <PrintModal />
       <PrintArea />
       <FeedbackModal />
+      <UpdateBanner />
     </div>
   );
 }

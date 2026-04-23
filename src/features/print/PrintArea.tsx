@@ -1,6 +1,45 @@
 import { useEffect, useState } from "react";
 import { formatCents } from "@/lib/utils";
 import type { PrintJob } from "./types";
+import { getSetting } from "@/lib/tauri";
+
+interface StoreInfo {
+  name:        string;
+  address:     string;
+  postal_code: string;
+  city:        string;
+  legal_form:  string;
+  siret:       string;
+  tva_number:  string;
+  phone:       string;
+  website:     string;
+}
+
+async function loadStoreInfo(): Promise<StoreInfo> {
+  const [name, address, postal_code, city, legal_form, siret, tva_number, phone, website] =
+    await Promise.all([
+      getSetting("store_name"),
+      getSetting("store_address"),
+      getSetting("store_postal_code"),
+      getSetting("store_city"),
+      getSetting("store_legal_form"),
+      getSetting("store_siret"),
+      getSetting("store_tva_number"),
+      getSetting("store_phone"),
+      getSetting("store_website"),
+    ]);
+  return {
+    name:        name        ?? "LDC",
+    address:     address     ?? "",
+    postal_code: postal_code ?? "",
+    city:        city        ?? "",
+    legal_form:  legal_form  ?? "",
+    siret:       siret       ?? "",
+    tva_number:  tva_number  ?? "",
+    phone:       phone       ?? "",
+    website:     website     ?? "",
+  };
+}
 
 const METHOD_LABELS: Record<string, string> = {
   CB: "Carte bancaire", ESPECES: "Espèces", CHEQUE: "Chèque",
@@ -14,11 +53,21 @@ function fmtDate(iso: string) {
   });
 }
 
+const DEFAULT_STORE: StoreInfo = {
+  name: "LDC", address: "", postal_code: "", city: "",
+  legal_form: "", siret: "", tva_number: "", phone: "", website: "",
+};
+
 export function PrintArea() {
-  const [job, setJob] = useState<PrintJob | null>(null);
+  const [job,   setJob]   = useState<PrintJob | null>(null);
+  const [store, setStore] = useState<StoreInfo>(DEFAULT_STORE);
 
   useEffect(() => {
-    const handler = (e: Event) => setJob((e as CustomEvent<PrintJob>).detail);
+    loadStoreInfo().then(setStore);
+    const handler = (e: Event) => {
+      loadStoreInfo().then(setStore);
+      setJob((e as CustomEvent<PrintJob>).detail);
+    };
     window.addEventListener("ldc:print-pdf", handler);
     return () => window.removeEventListener("ldc:print-pdf", handler);
   }, []);
@@ -28,15 +77,15 @@ export function PrintArea() {
   return (
     <div id="print-area">
       {job.type === "receipt" ? (
-        <ReceiptPrint job={job} />
+        <ReceiptPrint job={job} store={store} />
       ) : (
-        <RapportPrint job={job} />
+        <RapportPrint job={job} store={store} />
       )}
     </div>
   );
 }
 
-function ReceiptPrint({ job }: { job: Extract<PrintJob, { type: "receipt" }> }) {
+function ReceiptPrint({ job, store }: { job: Extract<PrintJob, { type: "receipt" }>; store: StoreInfo }) {
   const { transaction: tx, lines, payments } = job.transaction;
   const isAvoir = tx.type === "AVOIR";
   const method  = payments[0]?.method ?? "AUTRE";
@@ -51,8 +100,13 @@ function ReceiptPrint({ job }: { job: Extract<PrintJob, { type: "receipt" }> }) 
   return (
     <div className="receipt">
       <div className="receipt-header">
-        <strong>MON COMMERCE</strong>
-        <div>{fmtDate(tx.created_at)}</div>
+        <strong>{store.name}{store.legal_form ? ` — ${store.legal_form}` : ""}</strong>
+        {store.address    && <div>{store.address}</div>}
+        {(store.postal_code || store.city) && <div>{[store.postal_code, store.city].filter(Boolean).join(" ")}</div>}
+        {store.phone      && <div>Tél : {store.phone}</div>}
+        {store.siret      && <div>SIRET : {store.siret}</div>}
+        {store.tva_number && <div>TVA : {store.tva_number}</div>}
+        <div style={{ marginTop: "6px" }}>{fmtDate(tx.created_at)}</div>
         <div>Ticket #{tx.sequence_no.toString().padStart(5, "0")}</div>
         {isAvoir && <div className="avoir-badge">*** AVOIR ***</div>}
       </div>
@@ -110,7 +164,7 @@ function ReceiptPrint({ job }: { job: Extract<PrintJob, { type: "receipt" }> }) 
   );
 }
 
-function RapportPrint({ job }: { job: Extract<PrintJob, { type: "rapport" }> }) {
+function RapportPrint({ job, store }: { job: Extract<PrintJob, { type: "rapport" }>; store: StoreInfo }) {
   const r = job.rapport;
   const isClosed = r.session.status === "CLOSED";
   const label = `Z-${r.session.opened_at.slice(0, 4)}-${r.session.id.slice(0, 6).toUpperCase()}`;
@@ -129,6 +183,10 @@ function RapportPrint({ job }: { job: Extract<PrintJob, { type: "rapport" }> }) 
       <div className="rapport-header">
         <h1>{isClosed ? "CLÔTURE Z" : "RAPPORT X"}</h1>
         <div className="rapport-meta">
+          <strong>{store.name}{store.legal_form ? ` — ${store.legal_form}` : ""}</strong>
+          {store.address && <span>{store.address}{(store.postal_code || store.city) ? `, ${[store.postal_code, store.city].filter(Boolean).join(" ")}` : ""}</span>}
+          {store.siret      && <span>SIRET : {store.siret}</span>}
+          {store.tva_number && <span>TVA : {store.tva_number}</span>}
           <span>{date}</span>
           <span className="mono">{label}</span>
         </div>
