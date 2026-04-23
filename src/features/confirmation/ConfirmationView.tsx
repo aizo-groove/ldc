@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Printer, Mail, Ban, CheckCircle, Building2, ChevronDown, ChevronUp, X,
+  Printer, Mail, CheckCircle, Building2, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { formatCents, cn } from "@/lib/utils";
 import type { TransactionFull, TransactionLine, Payment, PersonGroup } from "@/types/transaction";
@@ -40,10 +40,6 @@ function formatDate(iso: string): string {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
-}
-
-function formatTvaRate(pct: number): string {
-  return `${(pct / 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
 }
 
 // ── Types ─────────────────────────────────────────────────────

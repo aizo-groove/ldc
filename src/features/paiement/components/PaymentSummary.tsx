@@ -3,21 +3,23 @@ import { formatCents } from "@/lib/utils";
 import type { PaymentMethod } from "@/types/transaction";
 
 const METHOD_BADGE: Record<PaymentMethod, string> = {
-  CB:       "CB",
-  ESPECES:  "ESP",
-  CHEQUE:   "CHQ",
-  VIREMENT: "VIR",
-  AVOIR:    "AV",
-  AUTRE:    "AUT",
+  CB:          "CB",
+  ESPECES:     "ESP",
+  CHEQUE:      "CHQ",
+  VIREMENT:    "VIR",
+  AVOIR:       "AV",
+  TITRE_RESTO: "TR",
+  AUTRE:       "AUT",
 };
 
 const METHOD_COLOR: Record<PaymentMethod, string> = {
-  CB:       "bg-primary/10 text-primary",
-  ESPECES:  "bg-secondary/10 text-secondary",
-  CHEQUE:   "bg-tertiary/10 text-tertiary",
-  VIREMENT: "bg-outline/10 text-outline",
-  AVOIR:    "bg-error/10 text-error",
-  AUTRE:    "bg-outline/10 text-outline",
+  CB:          "bg-primary/10 text-primary",
+  ESPECES:     "bg-secondary/10 text-secondary",
+  CHEQUE:      "bg-tertiary/10 text-tertiary",
+  VIREMENT:    "bg-outline/10 text-outline",
+  AVOIR:       "bg-error/10 text-error",
+  TITRE_RESTO: "bg-primary-fixed-dim/10 text-primary-fixed-dim",
+  AUTRE:       "bg-outline/10 text-outline",
 };
 
 interface Entry {
