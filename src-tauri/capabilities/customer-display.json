@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "customer-display",
+  "description": "Capability for the customer-facing display window",
+  "windows": ["customer-display"],
+  "permissions": [
+    "core:default"
+  ]
+}

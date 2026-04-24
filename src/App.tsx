@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import "./App.css";
 import { TopBar } from "@/components/layout/TopBar";
 import { SideNav, type NavRoute } from "@/components/layout/SideNav";
 import { useNavStore } from "@/components/layout/navStore";
@@ -19,10 +18,15 @@ import { PrintArea } from "@/features/print/PrintArea";
 import { FeedbackModal } from "@/features/feedback/FeedbackModal";
 import { UpdateBanner } from "@/features/updater/UpdateBanner";
 import { CashierSelectView } from "@/features/cashiers/CashierSelectView";
-import { createTransaction, deleteTableOrder, updateTableStatus } from "@/lib/tauri";
+import { createTransaction, deleteTableOrder, updateTableStatus, getSetting } from "@/lib/tauri";
 import { useTablesStore } from "@/features/tables/store";
 import type { PaymentInput, TransactionFull, PersonGroup } from "@/types/transaction";
 import type { Cashier } from "@/types/cashier";
+import {
+  openCustomerDisplayWindow,
+  emitDisplay,
+  type DisplayPayload,
+} from "@/features/customer-display/window";
 
 // ── Types d'état de l'application ──────────────────────────
 type AppScreen =
@@ -31,6 +35,42 @@ type AppScreen =
   | { type: "confirmation"; orderNumber: number; totalTtc: number; transaction: TransactionFull; personGroups: PersonGroup[] };
 
 let orderCounter = 8490;
+
+// ── Sync écran client ───────────────────────────────────────
+function CustomerDisplaySync({ screen }: { screen: AppScreen }) {
+  const items    = useCartStore((s) => s.items);
+  const totalTtc = useCartStore((s) => s.totalTtc)();
+  const [storeName, setStoreName] = useState("");
+
+  useEffect(() => {
+    getSetting("store_name").then((n) => setStoreName(n ?? ""));
+  }, []);
+
+  useEffect(() => {
+    let payload: DisplayPayload;
+
+    if (screen.type === "confirmation") {
+      payload = { type: "thankyou", storeName, total: screen.totalTtc };
+    } else if (items.length > 0) {
+      payload = {
+        type: "cart",
+        storeName,
+        total: totalTtc,
+        items: items.map((i) => ({
+          name:  i.product_name,
+          qty:   i.quantity,
+          total: i.unit_price_ttc * i.quantity - i.discount_ttc,
+        })),
+      };
+    } else {
+      payload = { type: "idle", storeName };
+    }
+
+    emitDisplay(payload).catch(() => {});
+  }, [items, totalTtc, screen.type, storeName]);
+
+  return null;
+}
 
 export default function App() {
   const [route, setRoute] = useState<NavRoute>("caisse");
@@ -49,6 +89,9 @@ export default function App() {
   useEffect(() => {
     initSession();
     initSettings();
+    getSetting("customer_display_enabled").then((v) => {
+      if (v === "true") openCustomerDisplayWindow().catch(() => {});
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCashierSelected = (selected: Cashier, openingFloat = 0) => {
@@ -207,6 +250,7 @@ export default function App() {
         />
       )}
 
+      <CustomerDisplaySync screen={screen} />
       <PrintModal />
       <PrintArea />
       <FeedbackModal />

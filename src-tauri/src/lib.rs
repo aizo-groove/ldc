@@ -48,6 +48,7 @@ pub fn run() {
             commands::print::print_receipt_escpos,
             commands::print::print_rapport_escpos,
             commands::print::test_printer,
+            commands::print::open_cash_drawer,
             // Sessions
             commands::caisse::list_sessions,
             commands::caisse::get_active_session,
@@ -60,6 +61,9 @@ pub fn run() {
             commands::cashiers::update_cashier,
             commands::cashiers::delete_cashier,
             commands::cashiers::verify_cashier_pin,
+            // Conformité NF525
+            commands::compliance::export_archive,
+            commands::compliance::get_db_path,
             // Transactions
             commands::transactions::create_transaction,
             commands::transactions::get_transaction,

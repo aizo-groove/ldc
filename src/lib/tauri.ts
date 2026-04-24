@@ -159,6 +159,9 @@ export const printRapportEscpos = (doc: EscPosRapportDoc): Promise<void> =>
 export const testPrinter = (): Promise<PrinterStatus> =>
   invoke("test_printer");
 
+export const openCashDrawer = (pin: number): Promise<void> =>
+  invoke("open_cash_drawer", { pin });
+
 // ── Settings ───────────────────────────────────────────────
 
 export const getSetting = (key: string): Promise<string | null> =>
@@ -166,6 +169,12 @@ export const getSetting = (key: string): Promise<string | null> =>
 
 export const updateSetting = (key: string, value: string): Promise<void> =>
   invoke("update_setting", { key, value });
+
+// ── Conformité NF525 ──────────────────────────────────────
+
+export const exportArchive = (): Promise<unknown> => invoke("export_archive");
+
+export const getDbPath = (): Promise<string> => invoke("get_db_path");
 
 // ── Journal ────────────────────────────────────────────────
 

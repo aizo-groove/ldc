@@ -1,4 +1,5 @@
 pub mod caisse;
+pub mod compliance;
 pub mod print;
 pub mod cashiers;
 pub mod catalogue;

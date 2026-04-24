@@ -135,6 +135,16 @@ pub async fn print_rapport_escpos(
     send_to_printer(pool, bytes).await
 }
 
+/// Ouvre le tiroir-caisse via l'imprimante (commande ESC/POS ESC p).
+/// pin: 0 = connecteur 2, 1 = connecteur 5
+#[tauri::command]
+pub async fn open_cash_drawer(state: State<'_, AppState>, pin: u8) -> Result<(), String> {
+    let pool = state.db.as_ref();
+    let pin_byte = if pin == 0 { 0x00_u8 } else { 0x01_u8 };
+    let bytes = vec![0x1B, 0x70, pin_byte, 0x3C, 0xFF];
+    send_to_printer(pool, bytes).await
+}
+
 /// Test de connexion : envoie juste un init + coupe.
 #[tauri::command]
 pub async fn test_printer(state: State<'_, AppState>) -> Result<PrinterStatus, String> {
