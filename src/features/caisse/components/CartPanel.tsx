@@ -43,7 +43,7 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
   const activeLineId = items.length > 0 ? items[items.length - 1].lineId : null;
 
   return (
-    <section className="col-span-5 flex flex-col overflow-hidden bg-surface-container-lowest">
+    <section id="tutorial-cart" className="col-span-5 flex flex-col overflow-hidden bg-surface-container-lowest">
       {/* En-tête */}
       <div className="p-6 flex items-center justify-between border-b border-outline-variant/10">
         <h2 className="text-xl font-bold tracking-tight uppercase select-none">
@@ -143,6 +143,7 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
 
           {/* PAYER */}
           <button
+            id="tutorial-pay-btn"
             onClick={onPay}
             disabled={items.length === 0}
             className="flex-2 h-20 px-6 bg-secondary-container text-on-secondary-container rounded-xl flex items-center justify-center gap-4 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"

@@ -38,6 +38,7 @@ export function SideNav({ activeRoute, onNavigate }: SideNavProps) {
 
   return (
     <nav
+      id="tutorial-sidenav"
       className={cn(
         "fixed left-0 top-16 h-[calc(100vh-64px)] flex flex-col py-4 z-40 bg-surface-container-low transition-all duration-200",
         collapsed ? "w-16" : "w-64"
@@ -51,6 +52,7 @@ export function SideNav({ activeRoute, onNavigate }: SideNavProps) {
           return (
             <button
               key={route}
+              id={`tutorial-nav-${route}`}
               onClick={() => onNavigate(route)}
               title={collapsed ? label : undefined}
               className={cn(
@@ -75,6 +77,7 @@ export function SideNav({ activeRoute, onNavigate }: SideNavProps) {
           return (
             <button
               key={route}
+              id={`tutorial-nav-${route}`}
               onClick={() => onNavigate(route)}
               title={collapsed ? label : undefined}
               className={cn(

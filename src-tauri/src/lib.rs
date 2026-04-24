@@ -79,6 +79,8 @@ pub fn run() {
             // Settings
             commands::settings::get_setting,
             commands::settings::update_setting,
+            // Dev tools (no-op in production)
+            commands::dev::dev_reset_onboarding,
             // Tables
             commands::tables::list_rooms,
             commands::tables::create_room,

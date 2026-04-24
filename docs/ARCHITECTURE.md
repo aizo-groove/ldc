@@ -47,6 +47,13 @@ ldc/
 │   │   ├── settings/           # Business profile and feature flags
 │   │   │   ├── SettingsView.tsx
 │   │   │   └── store.ts        # useSettingsStore (profile, flags, init, setProfile)
+│   │   ├── onboarding/         # First-launch wizard (5 steps)
+│   │   │   └── OnboardingView.tsx
+│   │   ├── tutorial/           # Interactive guided tour (driver.js)
+│   │   │   ├── store.ts        # useTutorialStore — pending flag
+│   │   │   └── tour.ts         # startTour(hasTables) — step definitions
+│   │   ├── dev/                # Dev-only tools (stripped from production)
+│   │   │   └── DevToolbar.tsx  # Reset onboarding button (import.meta.env.DEV only)
 │   │   ├── session/            # Session Zustand store
 │   │   └── catalogue/          # Catalogue Zustand store
 │   ├── lib/
@@ -69,11 +76,13 @@ ldc/
     │   │   ├── caisse.rs       # open_session, close_session, get_rapport_x
     │   │   ├── tables.rs       # CRUD for rooms and restaurant_tables, update_table_status/position
     │   │   ├── open_orders.rs  # get/save/delete_table_order
-    │   │   └── settings.rs     # get_setting, update_setting
+    │   │   ├── settings.rs     # get_setting, update_setting
+    │   │   ├── compliance.rs   # export_archive, get_db_path
+    │   │   └── dev.rs          # dev_reset_onboarding (no-op in production)
     │   ├── db/
-    │   │   ├── mod.rs          # DB init, migration runner
+    │   │   ├── mod.rs          # DB init, dev/prod DB name switch (ldc-dev.db / ldc.db)
     │   │   ├── models/         # Rust structs with sqlx::FromRow + Serde
-    │   │   └── migrations/     # SQL files (001–011), applied in order at startup
+    │   │   └── migrations/     # SQL files (001–014), applied in order at startup
     │   └── nf525/
     │       ├── chain.rs        # SHA-256 hash engine + verify_chain()
     │       └── grand_total.rs  # Grand totals computation (stub, used at Z-closure)
@@ -83,6 +92,20 @@ ldc/
 ---
 
 ## Frontend Architecture
+
+### App Startup Sequence
+
+On mount, `App.tsx` runs three things in parallel:
+
+```
+initSession()        ← get_active_session or auto-open
+initSettings()       ← load business_profile + theme from SQLite
+getSetting("store_name") + listCashiers()
+  → both empty? → onboarding = "needed"  → <OnboardingView />
+  → otherwise   → onboarding = "done"    → normal app
+```
+
+The `onboarding` state is `"checking" | "needed" | "done"`. While checking, the app renders nothing. After `OnboardingView` saves settings and calls `onDone()`, state flips to `"done"` and the cashier select screen appears normally.
 
 ### Screen State Machine
 
@@ -113,6 +136,8 @@ The `"tables"` route is only shown in the SideNav when the active business profi
 | `useCatalogueStore` | `features/catalogue/store.ts` | Products, categories, TVA rates from DB. `load()` fetches active products; `loadAll()` fetches all including inactive (used by inventory). Exposes `getCategoryName` and `getTvaRatePct` helpers. |
 | `useTablesStore` | `features/tables/store.ts` | Rooms and tables. `moveLocal()` for optimistic drag updates; `persistPosition()` saves on drag end. `cycleStatus()` cycles libre→occupe→addition→libre. |
 | `useSettingsStore` | `features/settings/store.ts` | Business profile (`restaurant` / `cafe` / `commerce`) persisted in SQLite `settings` table. Derives `FeatureFlags` from profile. `init()` loads on app start. |
+| `useCashiersStore` | `features/cashiers/store.ts` | Cashier list CRUD. `load()` fetches all cashiers; used at startup to determine whether onboarding is needed. |
+| `useTutorialStore` | `features/tutorial/store.ts` | Single boolean `pending` flag. Set to `true` by onboarding when the user opts into the tour. Consumed by `App.tsx` once a cashier is selected — triggers `startTour()`. |
 
 ### Business Profiles & Feature Flags
 
@@ -332,6 +357,80 @@ npm run tauri build
 ```
 
 The SQLite database is created automatically on first launch at the Tauri app data directory:
-- macOS: `~/Library/Application Support/com.ldc.pos/ldc.db`
-- Linux: `~/.local/share/com.ldc.pos/ldc.db`
-- Windows: `%APPDATA%\com.ldc.pos\ldc.db`
+
+| Build | File | macOS path |
+|---|---|---|
+| Production (`tauri build`) | `ldc.db` | `~/Library/Application Support/com.aizogroove.ldc/ldc.db` |
+| Development (`tauri dev`) | `ldc-dev.db` | `~/Library/Application Support/com.aizogroove.ldc/ldc-dev.db` |
+
+The dev/prod split is done in `db/mod.rs` with `cfg!(debug_assertions)`. The dev database is fully isolated — safe to delete at any time.
+
+---
+
+## Dev Mode
+
+### Separate database
+
+`cfg!(debug_assertions)` selects `ldc-dev.db` in debug builds. This prevents dev work from polluting production data and allows freely resetting state without consequences.
+
+### DevToolbar (`features/dev/DevToolbar.tsx`)
+
+Rendered only when `import.meta.env.DEV` is true — tree-shaken out of production bundles entirely. Displays a floating **DEV** badge in the bottom-left corner with a **Reset onboarding** button.
+
+The button calls `dev_reset_onboarding` (Rust side, `commands/dev.rs`), which:
+1. Deletes all rows from `cashiers`
+2. Deletes `store_name`, `onboarding_done`, `business_profile`, `store_siret`, `printer_ip`, `printer_port` from `settings`
+
+Then sets `onboarding = "needed"` in React state — the onboarding wizard reappears immediately without a restart.
+
+The Rust command is compiled in all builds but returns `Err("dev only")` immediately when `cfg!(not(debug_assertions))`. The frontend guard (`import.meta.env.DEV`) ensures it is never called in production.
+
+---
+
+## Interactive Guided Tour
+
+### Library
+
+The tour is built with [driver.js](https://driverjs.com) (≈5 kB gzipped). It renders a spotlight overlay with a popover callout on each target element.
+
+### Entry points
+
+| Where | How |
+|---|---|
+| End of onboarding (Step 4) | Checkbox **"Démarrer la visite guidée"** (checked by default). On "Ouvrir LDC", sets `useTutorialStore.pending = true`. |
+| Settings → À propos | **"Relancer la visite guidée"** button calls `startTour(flags.hasTableManagement)` directly. |
+
+### Trigger flow
+
+```
+OnboardingView (Step 4)
+  → user checks the tour option and clicks "Ouvrir LDC"
+  → useTutorialStore.setPending(true)
+  → onDone() → onboarding = "done"
+
+CashierSelectView
+  → user selects / creates a cashier → cashier set in session store
+
+App.tsx useEffect (dep: cashier.id)
+  → tutorialPending && cashier present
+  → setTutorialPending(false)
+  → setTimeout(() => startTour(hasTables), 600ms)   ← waits for layout
+```
+
+The 600 ms delay ensures the main app layout (SideNav, ProductGrid, CartPanel) is fully painted before driver.js queries the DOM for element positions.
+
+### DOM anchors
+
+Static `id` attributes added for driver.js element targeting:
+
+| ID | Element |
+|---|---|
+| `tutorial-sidenav` | `<nav>` in `SideNav.tsx` |
+| `tutorial-nav-{route}` | Each nav `<button>` (e.g. `tutorial-nav-caisse`, `tutorial-nav-historique`, …) |
+| `tutorial-product-grid` | `<section>` in `ProductGrid.tsx` |
+| `tutorial-cart` | `<section>` in `CartPanel.tsx` |
+| `tutorial-pay-btn` | PAYER `<button>` in `CartPanel.tsx` |
+
+### Persistence
+
+On tour completion (or early dismiss), `onDestroyed` writes `tutorial_done = "true"` to the `settings` table. This is informational only — the tour can always be relaunched from Settings.

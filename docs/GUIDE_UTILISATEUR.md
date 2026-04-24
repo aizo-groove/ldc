@@ -6,9 +6,49 @@ LDC Caisse est un logiciel de point de vente conforme à la norme fiscale franç
 
 ---
 
+## Premier lancement — Assistant de configuration
+
+Lors du tout premier démarrage (ou sur une installation vierge), LDC affiche un **assistant en 5 étapes** avant d'ouvrir la caisse :
+
+| Étape | Contenu |
+|-------|---------|
+| **Bienvenue** | Présentation du logiciel |
+| **Type de commerce** | Restaurant, Café/Bar ou Commerce — adapte l'interface |
+| **Établissement** | Nom du commerce (obligatoire) et SIRET (optionnel) |
+| **Imprimante** | Adresse IP et port de l'imprimante thermique (optionnel — "Configurer plus tard") |
+| **C'est parti !** | Résumé des paramètres saisis, option visite guidée, bouton pour ouvrir la caisse |
+
+Sur la dernière étape, une case **Démarrer la visite guidée** est cochée par défaut. Si vous la laissez cochée, la visite guidée se lance automatiquement une fois votre premier caissier créé.
+
+Après l'assistant, l'écran de connexion s'affiche pour créer votre premier caissier.
+
+> L'assistant ne s'affiche **qu'une seule fois** : dès que le nom du commerce est renseigné et qu'un caissier existe, il ne réapparaît plus.
+
+---
+
+## Visite guidée interactive
+
+La visite guidée présente les fonctionnalités principales du logiciel en 7 à 8 étapes illustrées :
+
+| Étape | Ce qui est mis en avant |
+|-------|------------------------|
+| Introduction | Présentation générale |
+| Navigation | Le menu latéral et ses sections |
+| Catalogue | Le panneau des produits et les catégories |
+| Panier | La colonne panier, les quantités, les totaux |
+| Encaisser | Le bouton PAYER et l'écran de paiement |
+| Plan de salle *(restaurant/café uniquement)* | Gestion des tables en direct |
+| Historique | Consultation des ventes passées |
+| Inventaire | Gestion du catalogue produits |
+| Paramètres | Configuration de l'imprimante et du profil |
+
+**Relancer la visite guidée** : allez dans **Paramètres → À propos**, puis cliquez sur **Relancer la visite guidée**. Vous pouvez l'interrompre à tout moment avec le bouton **Terminer**.
+
+---
+
 ## Démarrage rapide
 
-Au lancement du logiciel, un écran de connexion vous invite à choisir un caissier. La première fois, deux comptes sont disponibles : **Caissier** (sans PIN) et **Manager** (PIN `0000`).
+Au lancement du logiciel, un écran de connexion vous invite à choisir un caissier. La première fois, un compte **Manager** (PIN `0000`) est disponible — créez vos propres caissiers via **Gérer les caissiers**.
 
 La barre de navigation à gauche donne accès aux modules principaux :
 

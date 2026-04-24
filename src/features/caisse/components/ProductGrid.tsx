@@ -28,7 +28,7 @@ export function ProductGrid({
     categories.find((c) => c.id === categoryId)?.name ?? "";
 
   return (
-    <section className="col-span-7 flex flex-col bg-surface p-6 gap-6 overflow-hidden">
+    <section id="tutorial-product-grid" className="col-span-7 flex flex-col bg-surface p-6 gap-6 overflow-hidden">
       {/* Onglets catégories */}
       <div className="flex gap-3 overflow-x-auto pb-1 shrink-0 scrollbar-hide">
         <button

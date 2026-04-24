@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Wifi, WifiOff, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText } from "lucide-react";
+import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Wifi, WifiOff, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "./store";
 import type { BusinessProfile } from "@/types/settings";
@@ -8,6 +8,7 @@ import { openCustomerDisplayWindow, closeCustomerDisplayWindow } from "@/feature
 import type { PrinterStatus } from "@/features/print/types";
 import { useFeedbackStore } from "@/features/feedback/store";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { useTutorialStore } from "@/features/tutorial/store";
 
 interface ProfileOption {
   id: BusinessProfile;
@@ -509,6 +510,56 @@ const EMPTY_INFO: StoreInfo = {
   legal_form: "", siret: "", tva_number: "", phone: "", website: "",
 };
 
+// ── Validation helpers ───────────────────────────────────────
+
+function luhnCheck(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = parseInt(digits[i]);
+    if ((digits.length - 1 - i) % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+function validateSiret(v: string): string | null {
+  if (!v.trim()) return null;
+  const digits = v.replace(/\s/g, "");
+  if (!/^[0-9]{14}$/.test(digits)) return "14 chiffres requis (espaces autorisés).";
+  if (!luhnCheck(digits)) return "SIRET invalide — vérifiez les chiffres.";
+  return null;
+}
+
+function validatePhone(v: string): string | null {
+  if (!v.trim()) return null;
+  const clean = v.replace(/[\s\-\.()]/g, "");
+  if (!/^(0[1-9][0-9]{8}|\+33[1-9][0-9]{8}|0033[1-9][0-9]{8})$/.test(clean))
+    return "Format invalide. Ex : 01 23 45 67 89 ou +33 6 12 34 56 78";
+  return null;
+}
+
+function validateTva(v: string): string | null {
+  if (!v.trim()) return null;
+  if (!/^FR[0-9A-Z]{2}[0-9]{9}$/i.test(v.replace(/\s/g, "")))
+    return "Format invalide. Ex : FR12 123456789";
+  return null;
+}
+
+function validatePostal(v: string): string | null {
+  if (!v.trim()) return null;
+  if (!/^[0-9]{5}$/.test(v.trim())) return "5 chiffres requis.";
+  return null;
+}
+
+function validateWebsite(v: string): string | null {
+  if (!v.trim()) return null;
+  if (!/^(https?:\/\/|www\.)\S+\.\S+$/.test(v.trim()))
+    return "Format invalide. Ex : www.monbistrot.fr";
+  return null;
+}
+
+// ── Component ────────────────────────────────────────────────
+
 function StoreInfoSection() {
   const [info,  setInfo]  = useState<StoreInfo>(EMPTY_INFO);
   const [saved, setSaved] = useState(false);
@@ -544,7 +595,17 @@ function StoreInfoSection() {
     setSaved(false);
   };
 
+  const validationErrors = {
+    siret:      validateSiret(info.siret),
+    phone:      validatePhone(info.phone),
+    tva_number: validateTva(info.tva_number),
+    postal_code: validatePostal(info.postal_code),
+    website:    validateWebsite(info.website),
+  };
+  const hasErrors = Object.values(validationErrors).some(Boolean);
+
   const save = async () => {
+    if (hasErrors) return;
     await Promise.all([
       updateSetting("store_name",        info.name.trim()),
       updateSetting("store_address",     info.address.trim()),
@@ -565,23 +626,31 @@ function StoreInfoSection() {
     label: string,
     placeholder: string,
     opts?: { hint?: string; monospace?: boolean }
-  ) => (
-    <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-1.5">
-        {label}
-      </label>
-      <input
-        value={info[key]}
-        onChange={(e) => patch(key, e.target.value)}
-        placeholder={placeholder}
-        className={cn(
-          "w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface placeholder:text-outline outline-none focus:ring-2 focus:ring-primary/30 transition-all",
-          opts?.monospace && "font-mono tracking-wider"
-        )}
-      />
-      {opts?.hint && <p className="text-[10px] text-outline mt-1">{opts.hint}</p>}
-    </div>
-  );
+  ) => {
+    const error = validationErrors[key as keyof typeof validationErrors];
+    return (
+      <div>
+        <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-1.5">
+          {label}
+        </label>
+        <input
+          value={info[key]}
+          onChange={(e) => patch(key, e.target.value)}
+          placeholder={placeholder}
+          className={cn(
+            "w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface placeholder:text-outline outline-none focus:ring-2 transition-all",
+            opts?.monospace && "font-mono tracking-wider",
+            error ? "ring-2 ring-error/50 focus:ring-error/50" : "focus:ring-primary/30"
+          )}
+        />
+        {error
+          ? <p className="text-[10px] text-error mt-1">{error}</p>
+          : opts?.hint
+          ? <p className="text-[10px] text-outline mt-1">{opts.hint}</p>
+          : null}
+      </div>
+    );
+  };
 
   return (
     <section>
@@ -621,11 +690,11 @@ function StoreInfoSection() {
 
         {/* SIRET + TVA */}
         <div className="grid grid-cols-2 gap-4">
-          {field("siret", "SIRET", "123 456 789 00012", {
+          {field("siret", "SIRET", "12345678900012", {
             monospace: true,
             hint: "14 chiffres — obligatoire sur les tickets",
           })}
-          {field("tva_number", "N° TVA intracommunautaire", "FR 12 123456789", {
+          {field("tva_number", "N° TVA intracommunautaire", "FR12 123456789", {
             monospace: true,
             hint: "Laisser vide si non assujetti",
           })}
@@ -640,7 +709,7 @@ function StoreInfoSection() {
         <div className="flex justify-end pt-1">
           <button
             onClick={save}
-            disabled={!info.name.trim() || !info.siret.trim()}
+            disabled={!info.name.trim() || hasErrors}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-40",
               saved
@@ -986,6 +1055,7 @@ export function SettingsView() {
   const [tab, setTab] = useState<SettingsTab>("etablissement");
   const { profile, setProfile } = useSettingsStore();
   const showFeedback = useFeedbackStore((s) => s.show);
+  const setPending = useTutorialStore((s) => s.setPending);
 
   return (
     <main className="mt-16 h-[calc(100vh-64px)] bg-surface flex flex-col overflow-hidden">
@@ -1076,6 +1146,20 @@ export function SettingsView() {
 
           {tab === "apropos" && (
             <>
+              <section>
+                <h2 className="text-[11px] font-black text-outline uppercase tracking-widest mb-2">Visite guidée</h2>
+                <p className="text-sm text-outline mb-4">
+                  Relancez la visite guidée pour redécouvrir toutes les fonctionnalités de LDC.
+                </p>
+                <button
+                  onClick={() => setPending(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-black uppercase tracking-widest hover:bg-surface-bright transition-colors"
+                >
+                  <Map size={15} />
+                  Relancer la visite guidée
+                </button>
+              </section>
+
               <section>
                 <h2 className="text-[11px] font-black text-outline uppercase tracking-widest mb-2">Caissiers</h2>
                 <p className="text-sm text-outline">

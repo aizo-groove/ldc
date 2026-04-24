@@ -17,10 +17,12 @@ import { PrintModal } from "@/features/print/PrintModal";
 import { PrintArea } from "@/features/print/PrintArea";
 import { FeedbackModal } from "@/features/feedback/FeedbackModal";
 import { UpdateBanner } from "@/features/updater/UpdateBanner";
+import { DevToolbar } from "@/features/dev/DevToolbar";
 import { DonationModal } from "@/features/donation/DonationModal";
 import { CashierSelectView } from "@/features/cashiers/CashierSelectView";
-import { createTransaction, deleteTableOrder, updateTableStatus, getSetting } from "@/lib/tauri";
+import { createTransaction, deleteTableOrder, updateTableStatus, getSetting, listCashiers } from "@/lib/tauri";
 import { useTablesStore } from "@/features/tables/store";
+import { OnboardingView } from "@/features/onboarding/OnboardingView";
 import type { PaymentInput, TransactionFull, PersonGroup } from "@/types/transaction";
 import type { Cashier } from "@/types/cashier";
 import {
@@ -28,6 +30,8 @@ import {
   emitDisplay,
   type DisplayPayload,
 } from "@/features/customer-display/window";
+import { useTutorialStore } from "@/features/tutorial/store";
+import { startTour } from "@/features/tutorial/tour";
 
 // ── Types d'état de l'application ──────────────────────────
 type AppScreen =
@@ -78,6 +82,7 @@ export default function App() {
   const [screen, setScreen] = useState<AppScreen>({ type: "caisse" });
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [tableContext, setTableContext] = useState<{ tableId: string } | null>(null);
+  const [onboarding, setOnboarding] = useState<"checking" | "needed" | "done">("checking");
 
   const totalTtc = useCartStore((s) => s.totalTtc)();
   const cartItems = useCartStore((s) => s.items);
@@ -85,7 +90,20 @@ export default function App() {
 
   const { session, cashier, error: sessionError, init: initSession, openForCashier, switchCashier, clearCashier } = useSessionStore();
   const initSettings = useSettingsStore((s) => s.init);
+  const hasTables = useSettingsStore((s) => s.flags.hasTableManagement);
   const collapsed = useNavStore((s) => s.collapsed);
+
+  const tutorialPending = useTutorialStore((s) => s.pending);
+  const setTutorialPending = useTutorialStore((s) => s.setPending);
+
+  useEffect(() => {
+    if (cashier && tutorialPending) {
+      setTutorialPending(false);
+      setRoute("caisse");
+      setScreen({ type: "caisse" });
+      setTimeout(() => startTour(hasTables), 600);
+    }
+  }, [cashier?.id, tutorialPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     initSession();
@@ -93,6 +111,9 @@ export default function App() {
     getSetting("customer_display_enabled").then((v) => {
       if (v === "true") openCustomerDisplayWindow().catch(() => {});
     });
+    Promise.all([getSetting("store_name"), listCashiers()]).then(([name, cashiers]) => {
+      setOnboarding(!name && cashiers.length === 0 ? "needed" : "done");
+    }).catch(() => setOnboarding("done"));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCashierSelected = (selected: Cashier, openingFloat = 0) => {
@@ -102,6 +123,12 @@ export default function App() {
       openForCashier(selected, openingFloat);
     }
   };
+
+  if (onboarding === "checking") return null;
+
+  if (onboarding === "needed") {
+    return <OnboardingView onDone={() => setOnboarding("done")} />;
+  }
 
   // Show cashier select until a cashier is identified
   if (!cashier) {
@@ -257,6 +284,12 @@ export default function App() {
       <FeedbackModal />
       <DonationModal />
       <UpdateBanner />
+      {import.meta.env.DEV && (
+        <DevToolbar onReset={() => {
+          clearCashier();
+          setOnboarding("needed");
+        }} />
+      )}
     </div>
   );
 }

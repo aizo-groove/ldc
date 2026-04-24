@@ -187,10 +187,12 @@ export function CashierSelectView({ onSelect }: CashierSelectViewProps) {
       const pin = form.pin.trim() || null;
       if (editingId === "new") {
         await add(form.name.trim(), pin, form.role);
+        closeForm();
+        setMode("list");
       } else if (editingId) {
         await update(editingId, form.name.trim(), pin, form.role);
+        closeForm();
       }
-      closeForm();
     } finally {
       setSaving(false);
     }

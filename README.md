@@ -48,6 +48,17 @@ Un logiciel de caisse open-source pour le marché français — restaurants, caf
 **Profils commerciaux**
 - Restaurant, Café/Bar, Commerce — active ou masque les fonctionnalités selon le profil
 
+**Onboarding**
+- Assistant de premier lancement en 5 étapes (profil, établissement, imprimante)
+- Déclencheur automatique : `store_name` vide ET aucun caissier en base
+- Données configurées directement dans SQLite — pas d'écran intermédiaire
+
+**Visite guidée interactive**
+- Tour interactif proposé à la fin de l'onboarding (opt-in, coché par défaut)
+- 7 à 8 étapes avec spotlight et popover : catalogue, panier, paiement, tables, historique, inventaire, paramètres
+- Relançable à tout moment depuis Paramètres → À propos
+- Propulsé par [driver.js](https://driverjs.com)
+
 **Expérience**
 - Thème sombre/clair (Material You)
 - Horloge en temps réel dans la barre supérieure
@@ -116,6 +127,9 @@ ldc/
 │   │   ├── session/                 # Store de session
 │   │   ├── settings/                # Paramètres (onglets : établissement, matériel, conformité, à propos)
 │   │   ├── customer-display/        # Écran client (second moniteur)
+│   │   ├── onboarding/              # Assistant premier lancement (5 étapes)
+│   │   ├── tutorial/                # Visite guidée interactive (driver.js)
+│   │   ├── dev/                     # DevToolbar (debug builds uniquement)
 │   │   ├── print/                   # Modal et zone d'impression ESC/POS
 │   │   ├── feedback/                # Modal retour développeur
 │   │   └── updater/                 # Bannière de mise à jour
@@ -127,8 +141,9 @@ ldc/
 ├── src-tauri/
 │   ├── src/
 │   │   ├── commands/                # Handlers Tauri (catalogue, caisse, transactions, compliance…)
+│   │   │   └── dev.rs               # Commandes dev uniquement (no-op en production)
 │   │   ├── db/
-│   │   │   ├── migrations/          # Migrations SQL ordonnées (001 → 013)
+│   │   │   ├── migrations/          # Migrations SQL ordonnées (001 → 014)
 │   │   │   └── models/              # Structs sqlx FromRow
 │   │   ├── nf525/                   # Logique chaîne de hachage + grands totaux
 │   │   ├── printer/                 # Génération ESC/POS
@@ -155,16 +170,23 @@ Migrations clés :
 - `011` — tickets ouverts (tickets par table)
 - `012` — caissiers, `cashier_id` et `station_id` sur les sessions
 - `013` — compte responsable par défaut (PIN : `0000`)
+- `014` — nettoyage des données de démo, insertion du catalogue initial propre
 
 ---
 
 ## Gestion des caissiers
 
-Au premier lancement, deux caissiers sont créés :
-- **Caissier** — caissier par défaut, sans PIN
-- **Manager** — rôle responsable, PIN `0000`
+À l'installation, l'assistant d'onboarding guide l'utilisateur avant la création du premier caissier. Un compte **Manager** (PIN `0000`) est créé par la migration initiale comme filet de sécurité.
 
 Pour gérer les caissiers (ajouter, modifier, supprimer, changer les PINs) : sur l'écran de connexion, cliquez sur **Gérer les caissiers** et saisissez le PIN responsable.
+
+---
+
+## Mode développement
+
+En mode `npm run tauri dev`, le backend utilise `ldc-dev.db` au lieu de `ldc.db` — base complètement isolée de la production. Vous pouvez la supprimer à tout moment sans risque.
+
+Une barre **DEV** apparaît en bas à gauche avec un bouton **Reset onboarding** qui vide les settings et les caissiers pour retester le flux depuis le début. Elle est absente des builds de production (`cfg!(debug_assertions) = false`).
 
 ---
 

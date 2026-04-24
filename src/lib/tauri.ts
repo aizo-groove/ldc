@@ -190,3 +190,8 @@ export interface JournalEntry {
 
 export const listJournalEntries = (limit?: number): Promise<JournalEntry[]> =>
   invoke("list_journal_entries", { limit: limit ?? null });
+
+// ── Dev tools (debug builds only) ─────────────────────────
+
+export const devResetOnboarding = (): Promise<void> =>
+  invoke("dev_reset_onboarding");
