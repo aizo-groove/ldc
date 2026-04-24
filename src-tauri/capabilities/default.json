@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
     "core:webview:allow-create-webview-window",
     "core:window:allow-close",
     "core:window:allow-set-focus"

@@ -14,7 +14,7 @@ export function UpdateBanner() {
     const id = setTimeout(() => {
       check()
         .then((u) => { if (u?.available) setUpdate(u); })
-        .catch(() => { /* network unavailable — silent fail */ });
+        .catch((e) => { console.warn("[updater] check failed:", e); });
     }, 3000);
     return () => clearTimeout(id);
   }, []);

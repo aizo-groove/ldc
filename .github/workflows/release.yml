@@ -75,6 +75,6 @@ jobs:
 
             ---
             > ⚠️ Version bêta — merci de signaler tout bug via **Paramètres → Envoyer un retour**.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
