@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Printer, User, RefreshCw, Sun, Moon } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useSettingsStore } from "@/features/settings/store";
 
 interface TopBarProps {
@@ -23,12 +24,20 @@ function LiveClock() {
 
 export function TopBar({ cashierName = "—", onSwitchCashier, onPrinterSettings }: TopBarProps) {
   const { theme, setTheme } = useSettingsStore();
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   return (
     <header className="fixed top-0 w-full h-16 flex justify-between items-center px-6 z-50 bg-surface-container-low">
-      <h1 className="text-xl font-black text-on-surface tracking-tighter select-none">
-        LDC POS
-      </h1>
+      <div className="flex items-baseline gap-2 select-none">
+        <h1 className="text-xl font-black text-on-surface tracking-tighter">LDC POS</h1>
+        {version && (
+          <span className="text-[10px] font-bold text-outline tracking-widest">v{version}</span>
+        )}
+      </div>
 
       {/* Droite : actions + profil */}
       <div className="flex items-center gap-2">
