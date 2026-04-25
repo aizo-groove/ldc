@@ -525,6 +525,7 @@ function luhnCheck(digits: string): boolean {
 function validateSiret(v: string): string | null {
   if (!v.trim()) return null;
   const digits = v.replace(/\s/g, "");
+  if (digits.length < 14) return null;
   if (!/^[0-9]{14}$/.test(digits)) return "14 chiffres requis (espaces autorisés).";
   if (!luhnCheck(digits)) return "SIRET invalide — vérifiez les chiffres.";
   return null;

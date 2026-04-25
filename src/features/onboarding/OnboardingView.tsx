@@ -34,6 +34,23 @@ function ProgressDots({ step }: { step: Step }) {
   );
 }
 
+function luhnCheck(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = parseInt(digits[i]);
+    if ((digits.length - 1 - i) % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+function siretError(v: string): string | null {
+  if (!v) return null;
+  if (v.length < 14) return null; // still typing — wait for 14 digits
+  if (!luhnCheck(v)) return "SIRET invalide — vérifiez les chiffres.";
+  return null;
+}
+
 const PROFILES: { id: BusinessProfile; label: string; description: string; icon: React.ReactNode }[] = [
   { id: "restaurant", label: "Restaurant", description: "Tables, menus, service en salle", icon: <UtensilsCrossed size={28} /> },
   { id: "cafe",       label: "Café / Bar",  description: "Vente rapide au comptoir",       icon: <Coffee size={28} /> },
@@ -191,14 +208,20 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
               value={siret}
               onChange={(e) => setSiret(e.target.value.replace(/\D/g, "").slice(0, 14))}
               placeholder="12345678900000"
-              className="w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/40 text-on-surface placeholder:text-outline/50 tracking-widest"
+              className={cn(
+                "w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 text-on-surface placeholder:text-outline/50 tracking-widest",
+                siretError(siret) ? "ring-2 ring-error/50 focus:ring-error/50" : "focus:ring-primary/40"
+              )}
             />
+            {siretError(siret) && (
+              <p className="text-[11px] text-error mt-1.5">{siretError(siret)}</p>
+            )}
           </div>
         </div>
 
         <button
           onClick={next}
-          disabled={!storeName.trim()}
+          disabled={!storeName.trim() || !!siretError(siret)}
           className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"
         >
           Continuer <ChevronRight size={16} />
