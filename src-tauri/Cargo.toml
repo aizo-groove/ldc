@@ -1,6 +1,6 @@
 [package]
 name = "ldc"
-version = "0.4.0"
+version = "0.5.0"
 description = "Logiciel de Caisse NF525 — open source"
 authors = []
 edition = "2021"

@@ -32,6 +32,8 @@ import {
 } from "@/features/customer-display/window";
 import { useTutorialStore } from "@/features/tutorial/store";
 import { startTour } from "@/features/tutorial/tour";
+import { WhatsNewModal } from "@/features/whats-new/WhatsNewModal";
+import { getVersion } from "@tauri-apps/api/app";
 
 // ── Types d'état de l'application ──────────────────────────
 type AppScreen =
@@ -83,6 +85,7 @@ export default function App() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [tableContext, setTableContext] = useState<{ tableId: string } | null>(null);
   const [onboarding, setOnboarding] = useState<"checking" | "needed" | "done">("checking");
+  const [whatsNew, setWhatsNew] = useState<string | null>(null);
 
   const totalTtc = useCartStore((s) => s.totalTtc)();
   const cartItems = useCartStore((s) => s.items);
@@ -111,8 +114,9 @@ export default function App() {
     getSetting("customer_display_enabled").then((v) => {
       if (v === "true") openCustomerDisplayWindow().catch(() => {});
     });
-    Promise.all([getSetting("store_name"), listCashiers()]).then(([name, cashiers]) => {
+    Promise.all([getSetting("store_name"), listCashiers(), getSetting("last_seen_version"), getVersion()]).then(([name, cashiers, lastSeen, current]) => {
       setOnboarding(!name && cashiers.length === 0 ? "needed" : "done");
+      if (lastSeen !== current) setWhatsNew(current);
     }).catch(() => setOnboarding("done"));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -284,6 +288,9 @@ export default function App() {
       <FeedbackModal />
       <DonationModal />
       <UpdateBanner />
+      {whatsNew && onboarding === "done" && (
+        <WhatsNewModal version={whatsNew} onClose={() => setWhatsNew(null)} />
+      )}
       {import.meta.env.DEV && (
         <DevToolbar onReset={() => {
           clearCashier();
