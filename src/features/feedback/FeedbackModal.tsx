@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, MessageSquarePlus, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFeedbackStore } from "./store";
-
-const APP_VERSION = "0.1.0";
+import { getVersion } from "@tauri-apps/api/app";
 const FEEDBACK_URL = import.meta.env.VITE_FEEDBACK_URL as string | undefined;
 
 type Category = "bug" | "suggestion" | "autre";
@@ -21,6 +20,9 @@ export function FeedbackModal() {
   const [message,  setMessage]  = useState("");
   const [status,   setStatus]   = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error,    setError]    = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState("…");
+
+  useEffect(() => { getVersion().then(setAppVersion).catch(() => {}); }, []);
 
   if (!open) return null;
 
@@ -49,7 +51,7 @@ export function FeedbackModal() {
       const res = await fetch(FEEDBACK_URL, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, message: message.trim(), version: APP_VERSION }),
+        body: JSON.stringify({ category, message: message.trim(), version: appVersion }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setStatus("done");
@@ -146,7 +148,7 @@ export function FeedbackModal() {
 
               {/* Footer */}
               <div className="flex items-center justify-between pt-1">
-                <p className="text-[10px] text-outline">v{APP_VERSION}</p>
+                <p className="text-[10px] text-outline">v{appVersion}</p>
                 <div className="flex gap-2">
                   <button
                     onClick={handleClose}
