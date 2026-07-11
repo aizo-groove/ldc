@@ -1,6 +1,9 @@
 # Personal notes
 docs/ROADMAP.md
 
+# Fido integration spec — not for public repo (pending Fido team approval)
+docs/FIDO_LOYALTY_TYPES.md
+
 # Logs
 logs
 *.log
