@@ -605,7 +605,10 @@ export function FidoDetail() {
             <CheckCircle2 size={14} />
             Connexion active — mid : <span className="font-mono">{config?.fido_mid?.slice(0, 8)}…</span>
             <button
-              onClick={() => useLoyaltyStore.getState().updateConfig({ fido_enabled: false })}
+              onClick={async () => {
+                useLoyaltyStore.getState().updateConfig({ fido_enabled: false });
+                await useLoyaltyStore.getState().persistConfig();
+              }}
               className="ml-auto text-[10px] text-outline hover:text-error transition-colors font-normal"
             >
               Déconnecter

@@ -81,7 +81,9 @@ export const useLoyaltyStore = create<LoyaltyState>((set, get) => ({
     try {
       await saveLoyaltyConfig(config);
       await testLoyaltyConnection();
-      set({ connectionStatus: "ok" });
+      const enabledConfig = { ...config, fido_enabled: true };
+      await saveLoyaltyConfig(enabledConfig);
+      set({ connectionStatus: "ok", config: enabledConfig });
     } catch (e) {
       set({ connectionStatus: "error", connectionError: String(e) });
     } finally {
