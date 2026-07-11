@@ -39,14 +39,23 @@ ldc/
 │   │   ├── cloture/            # Z-closure fiscal day-close
 │   │   ├── historique/         # Transaction history
 │   │   ├── tables/             # Table floor plan, drag-and-drop, open tickets
-│   │   │   ├── TableView.tsx   # Canvas floor plan, room tabs, edit mode
+│   │   │   ├── TableView.tsx   # Canvas floor plan, room tabs, edit mode + open orders overlay
 │   │   │   ├── store.ts        # useTablesStore (rooms, tables, drag, cycleStatus)
 │   │   │   └── components/
 │   │   │       ├── TableTicketPanel.tsx  # Per-table ticket editor + product grid
 │   │   │       └── TableFormModal.tsx    # Create/edit table modal
+│   │   ├── print/              # Print system
+│   │   │   ├── PrintModal.tsx          # Printer-aware print modal (shows named printers)
+│   │   │   ├── PrintArea.tsx           # PDF/print CSS rendering area
+│   │   │   ├── ScreenReceiptOverlay.tsx # Full-screen receipt display (no printer needed)
+│   │   │   ├── usePrint.ts             # executePrint() — escpos | screen | pdf | json
+│   │   │   ├── store.ts                # usePrintStore (job queue)
+│   │   │   └── types.ts                # PrintJob, EscPosReceiptDoc, EscPosKitchenDoc, PrinterStatus
 │   │   ├── settings/           # Business profile and feature flags
 │   │   │   ├── SettingsView.tsx
-│   │   │   └── store.ts        # useSettingsStore (profile, flags, init, setProfile)
+│   │   │   ├── store.ts        # useSettingsStore (profile, flags, init, setProfile)
+│   │   │   └── components/
+│   │   │       └── PrinterManager.tsx  # Printer list CRUD + add/edit drawer
 │   │   ├── onboarding/         # First-launch wizard (5 steps)
 │   │   │   └── OnboardingView.tsx
 │   │   ├── tutorial/           # Interactive guided tour (driver.js)
@@ -65,6 +74,7 @@ ldc/
 │       ├── session.ts          # Session, RapportX
 │       ├── table.ts            # Room, RestaurantTable, TableStatus
 │       ├── open_order.ts       # OpenOrder, OpenOrderLine, OpenOrderFull, OpenOrderLineInput
+│       ├── printer.ts          # Printer, PrinterInput, printerHasRole()
 │       └── settings.ts         # BusinessProfile, FeatureFlags, PROFILE_FLAGS
 │
 └── src-tauri/
@@ -75,14 +85,18 @@ ldc/
     │   │   ├── transactions.rs # create_transaction (with stock check + decrement), verify_chain
     │   │   ├── caisse.rs       # open_session, close_session, get_rapport_x
     │   │   ├── tables.rs       # CRUD for rooms and restaurant_tables, update_table_status/position
-    │   │   ├── open_orders.rs  # get/save/delete_table_order
+    │   │   ├── open_orders.rs  # get/save/delete/list_table_order, mark_sent_to_kitchen
+    │   │   ├── printers.rs     # list/create/update/delete_printer, test_printer_by_id
+    │   │   ├── print.rs        # ESC/POS commands — printer-table dispatch with settings fallback
     │   │   ├── settings.rs     # get_setting, update_setting
     │   │   ├── compliance.rs   # export_archive, get_db_path
     │   │   └── dev.rs          # dev_reset_onboarding (no-op in production)
     │   ├── db/
-    │   │   ├── mod.rs          # DB init, dev/prod DB name switch (ldc-dev.db / ldc.db)
+    │   │   ├── mod.rs          # DB init, PRAGMA foreign_keys=ON via SqliteConnectOptions
     │   │   ├── models/         # Rust structs with sqlx::FromRow + Serde
-    │   │   └── migrations/     # SQL files (001–014), applied in order at startup
+    │   │   └── migrations/     # SQL files (001–018), applied in order at startup
+    │   ├── printer/
+    │   │   └── escpos.rs       # EscPos byte builder — build_receipt, build_rapport, build_kitchen
     │   └── nf525/
     │       ├── chain.rs        # SHA-256 hash engine + verify_chain()
     │       └── grand_total.rs  # Grand totals computation (stub, used at Z-closure)
@@ -138,6 +152,7 @@ The `"tables"` route is only shown in the SideNav when the active business profi
 | `useSettingsStore` | `features/settings/store.ts` | Business profile (`restaurant` / `cafe` / `commerce`) persisted in SQLite `settings` table. Derives `FeatureFlags` from profile. `init()` loads on app start. |
 | `useCashiersStore` | `features/cashiers/store.ts` | Cashier list CRUD. `load()` fetches all cashiers; used at startup to determine whether onboarding is needed. |
 | `useTutorialStore` | `features/tutorial/store.ts` | Single boolean `pending` flag. Set to `true` by onboarding when the user opts into the tour. Consumed by `App.tsx` once a cashier is selected — triggers `startTour()`. |
+| `usePrintStore` | `features/print/store.ts` | Current print job. `trigger(job)` queues a job for `PrintModal` to render. |
 
 ### Business Profiles & Feature Flags
 
@@ -160,6 +175,21 @@ interface FeatureFlags {
 | cafe | ✓ | ✓ | ✗ |
 | commerce | ✗ | ✗ | ✓ |
 
+### Print System
+
+The print system supports four output formats:
+
+| Format | Behavior |
+|---|---|
+| `escpos` | Sends ESC/POS bytes via TCP to the configured thermal printer |
+| `screen` | Dispatches `ldc:screen-receipt` custom event — `ScreenReceiptOverlay` shows a styled receipt modal |
+| `pdf` | Dispatches `ldc:print-pdf` — `PrintArea` renders HTML → `window.print()` |
+| `json` | Downloads the transaction data as a JSON file |
+
+`PrintModal` is printer-aware: on open it loads the `printers` table and shows named printers as targets. For each configured receipt printer, clicking it calls `executePrint(job, type === "screen" ? "screen" : "escpos")`. PDF and JSON are always available as fallbacks.
+
+`ScreenReceiptOverlay` is mounted globally in `App.tsx` and listens for the `ldc:screen-receipt` event. It renders a styled white receipt card over a dark backdrop.
+
 ### Tauri Bridge (`src/lib/tauri.ts`)
 
 All calls to the Rust backend go through typed wrappers around `invoke()`. This file is the single point of truth for the JS↔Rust interface. Adding a new command = add one export here.
@@ -176,6 +206,7 @@ Migrations in `src-tauri/src/db/migrations/` are applied sequentially at startup
 - **All amounts as INTEGER centimes**: no REAL/FLOAT anywhere in the schema.
 - **NF525 chain fields on transactions**: `sequence_no`, `previous_hash`, `hash`.
 - **Soft delete on products**: `active = 0` instead of hard delete, preserving historical transaction line names.
+- **FK constraints on every connection**: `SqliteConnectOptions::pragma("foreign_keys", "ON")` is set at pool level, not per-query — ensures enforcement across all 5 pool connections.
 
 ```
 tva_rates           (seed data: 5 rates)
@@ -191,9 +222,32 @@ grand_totals        (perpetual cumulative totals — future)
 settings            (key/value store: business_profile, …)
 rooms               (restaurant room definitions with sort_order)
 restaurant_tables   (name, seats, shape, status, pos_x, pos_y, room_id)
-open_orders         (one per table max, UNIQUE(table_id), deleted on payment)
-open_order_lines    (cascade delete from open_orders)
+open_orders         (covers, note, sent_to_kitchen, one per table, UNIQUE(table_id))
+open_order_lines    (sent_qty for delta kitchen tracking, cascade delete from open_orders)
+printers            (name, printer_type, ip, port, paper_mm, roles, sort_order)
+cashiers            (name, pin_hash, role)
 ```
+
+### Printer Manager
+
+Printers are stored in a `printers` table and managed via CRUD commands (`list/create/update/delete_printer`, `test_printer_by_id`).
+
+**Printer types:**
+- `thermal_tcp` — ESC/POS over TCP/IP. Requires `ip` + `port` (default 9100) + `paper_mm` (58 or 80).
+- `screen` — No physical printer. The backend returns `Ok(())` silently; the frontend intercepts and shows `ScreenReceiptOverlay`.
+
+**Printer roles** (comma-separated in `roles` field):
+- `receipt` — used for customer receipts and Z-rapport
+- `kitchen` — used for kitchen tickets
+- `receipt,kitchen` — single printer serving both roles
+
+**Print dispatch priority** (in `commands/print.rs`):
+1. Query `printers` table for a `thermal_tcp` printer with matching role
+2. If type is `screen` → return `Ok(())` (frontend handles display)
+3. Fall back to legacy settings keys (`printer_ip`, `kitchen_printer_ip`) for migration continuity
+4. For kitchen: if no kitchen printer found anywhere, fall back to the receipt printer
+
+This ensures existing single-printer setups need zero reconfiguration after upgrading.
 
 ### Stock Management
 
@@ -208,22 +262,32 @@ Products with `track_stock = 1` participate in stock tracking:
 
 Tables are positioned on a canvas (1400×800) with drag-and-drop in edit mode. Each table has a `status` (`libre` / `occupe` / `addition`) and an optional `open_order`.
 
+**Open order model:**
+- `open_orders`: `id`, `table_id`, `session_id`, `covers`, `note`, `sent_to_kitchen`, timestamps
+- `open_order_lines`: `id`, `order_id`, `line_no`, product fields (snapshot), `quantity`, prices, `sent_qty`
+
+`sent_qty` per line tracks how many items were already sent to the kitchen — enabling delta sends.
+
 **Open order lifecycle:**
 
 ```
 TableTicketPanel opens
-  → getTableOrder(tableId) — load existing lines if any
+  → getTableOrder(tableId) — load existing lines + covers + note if any
   → if status ≠ libre and no order found → updateTableStatus("libre")  (stale state correction)
 
-User adds/edits items, taps "Enregistrer"
-  → if items empty: deleteTableOrder + updateTableStatus("libre")
-  → if items present: saveTableOrder (upsert) + updateTableStatus("occupe")
-  → onClose() → TableView reloads
-
-User taps "Régler"
-  → saveTableOrder (persist before leaving)
-  → loadFromOrderLines into cartStore
-  → onPay() → App.tsx sets tableContext + opens payment screen
+User adds/edits items + fills note + adjusts covers
+  → "Envoyer en cuisine":
+      compute delta = items where quantity > sent_qty
+      if first send → no subtitle; subsequent sends → subtitle "COMPLÉMENT"
+      saveTableOrder (with updatedItems where sent_qty = quantity) → print kitchen ticket
+      markSentToKitchen(tableId)
+  → "Enregistrer":
+      if items empty → deleteTableOrder + updateTableStatus("libre")
+      if items present → saveTableOrder + updateTableStatus("occupe")
+      → onClose() → TableView reloads (refreshes open orders + table statuses)
+  → "Régler":
+      saveTableOrder → loadFromOrderLines into cartStore → updateTableStatus("addition")
+      → App.tsx sets tableContext + opens payment screen
 
 validatePayment (on success)
   → deleteTableOrder(tableId)
@@ -232,7 +296,12 @@ validatePayment (on success)
   → tableContext cleared
 ```
 
-`saveTableOrder` uses an upsert pattern: SELECT id WHERE table_id, then UPDATE or INSERT. Lines are fully replaced on each save (DELETE + re-INSERT).
+**Table card enhancements:**
+- `TableView` loads `listOpenOrders()` on mount and on panel close, building a `Record<tableId, OpenOrder>` map
+- `TableCard` shows actual `covers` from the open order (not table seat capacity) when occupied
+- A green "cuisine ✓" badge appears below the table name when `sent_to_kitchen === 1`
+
+`saveTableOrder` uses an upsert pattern: SELECT id WHERE table_id, then UPDATE or INSERT. Lines are fully replaced on each save (DELETE + re-INSERT). The `session_id` is validated before binding — stale IDs are silently dropped to `null` to avoid FK constraint violations.
 
 ### NF525 Compliance
 
@@ -256,6 +325,10 @@ Closes the day, locks the session, and will generate a certified `cloture` recor
 
 > The full Z-closure with `clotures` table insertion and `grand_totals` update is scaffolded (`nf525/grand_total.rs`) but not yet wired into `close_session`. Current implementation marks the session CLOSED and returns the `RapportX` aggregates.
 
+**4. FK integrity**
+
+`transaction_lines.product_id` may reference a deleted product — `create_transaction` pre-checks existence and nulls stale IDs before INSERT. Product name/SKU snapshots are kept on the line, preserving traceability regardless of product lifecycle.
+
 ### Command Registration
 
 All Tauri commands are registered in `lib.rs` inside `tauri::generate_handler![...]`. Adding a new command requires:
@@ -263,7 +336,7 @@ All Tauri commands are registered in `lib.rs` inside `tauri::generate_handler![.
 2. Add to `generate_handler!` in `lib.rs`
 3. Add a typed wrapper in `src/lib/tauri.ts`
 
-The `AppState` carries a `Arc<Mutex<SqlitePool>>`. Commands lock the pool, execute queries, and release. All commands are `async` and run on Tokio's runtime.
+The `AppState` carries an `Arc<DbPool>`. `DbPool` is `sqlx::SqlitePool` — already thread-safe with internal connection management. All commands are `async` and run on Tokio's runtime.
 
 > **Tauri v2 naming rule**: `invoke()` parameter keys must be camelCase (e.g. `sessionId`, not `session_id`). Return values from Rust structs remain snake_case (serialized by serde).
 
@@ -286,24 +359,46 @@ PaymentView
       → createTransaction(...)  ← Tauri (stock check + decrement inside)
       → clearCart()
       → screen = { type: "confirmation", ... }
+      → usePrintStore.trigger(job)  → PrintModal opens
 ```
 
 ### Table Ticket Flow
 
 ```
 TableView (floor plan)
+  → listOpenOrders() on mount → builds Record<tableId, OpenOrder> for card overlay
   → user taps table → setSelectedTable(table) → renders TableTicketPanel
 
 TableTicketPanel
-  → loads existing open_order from DB
-  → user adds/edits items
+  → loads existing open_order (covers, note, lines with sent_qty) from DB
+  → user adds/edits items, adjusts covers, fills note
+  → "Envoyer en cuisine"
+      → delta = lines where qty > sent_qty
+      → saveTableOrder (sent_qty = qty) → printKitchenEscpos (subtitle "COMPLÉMENT" if resend)
+      → markSentToKitchen
   → "Enregistrer" → saveTableOrder + updateTableStatus("occupe") → onClose()
-  → "Régler"      → saveTableOrder → loadFromOrderLines → onPay()
+  → "Régler" → saveTableOrder → updateTableStatus("addition") → loadFromOrderLines → onPay()
     → App.tsx openPaymentFromTable(tableId) → sets tableContext → payment screen
 
 validatePayment (success)
   → deleteTableOrder(tableId) + updateTableStatus("libre")
-  → tablesStore.load() → floor plan reflects freed table
+  → tablesStore.load() + listOpenOrders() → floor plan reflects freed table
+```
+
+### Print Dispatch Flow
+
+```
+usePrintStore.trigger(job)
+  → PrintModal opens
+  → listPrinters() → filters by role "receipt"
+  → user taps a printer card:
+      printer_type === "screen" → executePrint(job, "screen")
+        → window.dispatchEvent("ldc:screen-receipt") → ScreenReceiptOverlay renders
+      printer_type === "thermal_tcp" → executePrint(job, "escpos")
+        → printReceiptEscpos(doc) ← Tauri
+          → get_printer_row("receipt") from printers table
+          → connect_and_send(ip, port, bytes)
+  → PDF / JSON always available as alternatives
 ```
 
 ### Session Lifecycle
@@ -334,6 +429,7 @@ Palette: **Material You dark**, permanent dark mode.
 |---|---|---|
 | `primary` | `#b4c5ff` (blue lavender) | Active nav, focus rings, primary actions |
 | `secondary` | `#4ae176` (validation green) | Totals, success states, libre table status |
+| `tertiary` | teal/green | Kitchen send button, "cuisine ✓" badge, unsent item highlight |
 | `error` | `#ffb4ab` (coral red) | Out of stock, error states, occupied table status |
 | `surface-container-low` | `#1c1b1b` | Card backgrounds |
 | `outline` | `#8d90a0` | Secondary text, inactive icons |

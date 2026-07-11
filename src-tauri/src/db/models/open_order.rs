@@ -6,6 +6,8 @@ pub struct OpenOrder {
     pub table_id: Option<String>,
     pub session_id: Option<String>,
     pub note: Option<String>,
+    pub covers: i64,
+    pub sent_to_kitchen: i64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -23,6 +25,7 @@ pub struct OpenOrderLine {
     pub unit_price_ht: i64,
     pub tva_rate_pct: i64,
     pub discount_ttc: i64,
+    pub sent_qty: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,7 +34,6 @@ pub struct OpenOrderFull {
     pub lines: Vec<OpenOrderLine>,
 }
 
-/// Entrée envoyée par le frontend pour sauvegarder une ligne.
 #[derive(Debug, Deserialize)]
 pub struct OpenOrderLineInput {
     pub product_id: Option<String>,
@@ -42,4 +44,5 @@ pub struct OpenOrderLineInput {
     pub unit_price_ht: i64,
     pub tva_rate_pct: i64,
     pub discount_ttc: i64,
+    pub sent_qty: i64,
 }

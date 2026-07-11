@@ -31,16 +31,44 @@ pub async fn get_table_order(
 }
 
 #[tauri::command]
+pub async fn list_open_orders(
+    state: State<'_, AppState>,
+) -> Result<Vec<OpenOrder>, String> {
+    let pool = state.db.as_ref();
+    sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders")
+        .fetch_all(&*pool)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn save_table_order(
     state: State<'_, AppState>,
     table_id: String,
     session_id: Option<String>,
+    covers: i64,
+    note: Option<String>,
     lines: Vec<OpenOrderLineInput>,
 ) -> Result<OpenOrderFull, String> {
     let pool = state.db.as_ref();
     let now = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")
         .to_string();
+
+    // Validate session_id: use None if session doesn't exist to avoid FK violation.
+    let session_id: Option<String> = match session_id {
+        Some(ref sid) => {
+            let exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)"
+            )
+            .bind(sid)
+            .fetch_one(&*pool)
+            .await
+            .unwrap_or(false);
+            if exists { session_id } else { None }
+        }
+        None => None,
+    };
 
     // Upsert the open_order row
     let order_id = sqlx::query_scalar::<_, String>(
@@ -53,9 +81,11 @@ pub async fn save_table_order(
 
     let order_id = if let Some(id) = order_id {
         sqlx::query(
-            "UPDATE open_orders SET session_id = ?, updated_at = ? WHERE id = ?",
+            "UPDATE open_orders SET session_id = ?, covers = ?, note = ?, updated_at = ? WHERE id = ?",
         )
         .bind(&session_id)
+        .bind(covers)
+        .bind(&note)
         .bind(&now)
         .bind(&id)
         .execute(&*pool)
@@ -65,11 +95,13 @@ pub async fn save_table_order(
     } else {
         let new_id = uuid::Uuid::new_v4().to_string();
         sqlx::query(
-            "INSERT INTO open_orders (id, table_id, session_id, updated_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO open_orders (id, table_id, session_id, covers, note, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(&new_id)
         .bind(&table_id)
         .bind(&session_id)
+        .bind(covers)
+        .bind(&note)
         .bind(&now)
         .execute(&*pool)
         .await
@@ -89,8 +121,8 @@ pub async fn save_table_order(
         sqlx::query(
             r#"INSERT INTO open_order_lines
                (id, order_id, line_no, product_id, product_name, product_sku,
-                quantity, unit_price_ttc, unit_price_ht, tva_rate_pct, discount_ttc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+                quantity, unit_price_ttc, unit_price_ht, tva_rate_pct, discount_ttc, sent_qty)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
         )
         .bind(&line_id)
         .bind(&order_id)
@@ -103,6 +135,7 @@ pub async fn save_table_order(
         .bind(line.unit_price_ht)
         .bind(line.tva_rate_pct)
         .bind(line.discount_ttc)
+        .bind(line.sent_qty)
         .execute(&*pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -124,6 +157,20 @@ pub async fn save_table_order(
     .map_err(|e| e.to_string())?;
 
     Ok(OpenOrderFull { order, lines: saved_lines })
+}
+
+#[tauri::command]
+pub async fn mark_sent_to_kitchen(
+    state: State<'_, AppState>,
+    table_id: String,
+) -> Result<(), String> {
+    let pool = state.db.as_ref();
+    sqlx::query("UPDATE open_orders SET sent_to_kitchen = 1 WHERE table_id = ?")
+        .bind(&table_id)
+        .execute(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

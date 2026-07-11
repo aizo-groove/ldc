@@ -47,7 +47,9 @@ pub fn run() {
             // Print
             commands::print::print_receipt_escpos,
             commands::print::print_rapport_escpos,
+            commands::print::print_kitchen_escpos,
             commands::print::test_printer,
+            commands::print::test_kitchen_printer,
             commands::print::open_cash_drawer,
             // Sessions
             commands::caisse::list_sessions,
@@ -74,8 +76,26 @@ pub fn run() {
             commands::journal::list_journal_entries,
             // Open orders (tickets table)
             commands::open_orders::get_table_order,
+            commands::open_orders::list_open_orders,
             commands::open_orders::save_table_order,
             commands::open_orders::delete_table_order,
+            commands::open_orders::mark_sent_to_kitchen,
+            // Printers
+            commands::printers::list_printers,
+            commands::printers::create_printer,
+            commands::printers::update_printer,
+            commands::printers::delete_printer,
+            commands::printers::test_printer_by_id,
+            // Loyalty (Fido)
+            commands::loyalty::get_loyalty_config,
+            commands::loyalty::save_loyalty_config,
+            commands::loyalty::test_loyalty_connection,
+            commands::loyalty::get_cached_program,
+            commands::loyalty::save_loyalty_program,
+            commands::loyalty::delete_local_program,
+            commands::loyalty::generate_loyalty_qr,
+            commands::loyalty::validate_rct_local,
+            commands::loyalty::consume_rct_local,
             // Settings
             commands::settings::get_setting,
             commands::settings::update_setting,

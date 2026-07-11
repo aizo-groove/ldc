@@ -3,6 +3,8 @@ export interface OpenOrder {
   table_id: string | null;
   session_id: string | null;
   note: string | null;
+  covers: number;
+  sent_to_kitchen: number;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +21,7 @@ export interface OpenOrderLine {
   unit_price_ht: number;
   tva_rate_pct: number;
   discount_ttc: number;
+  sent_qty: number;
 }
 
 export interface OpenOrderFull {
@@ -35,4 +38,5 @@ export interface OpenOrderLineInput {
   unit_price_ht: number;
   tva_rate_pct: number;
   discount_ttc: number;
+  sent_qty: number;
 }

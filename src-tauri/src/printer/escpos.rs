@@ -1,6 +1,8 @@
 /// ESC/POS byte builder compatible avec les imprimantes thermiques Epson, Star, etc.
 /// Code page PC858 (Latin-1 + €). Largeur 48 cols (80 mm) ou 32 cols (58 mm).
 
+use base64::Engine as _;
+
 // ── Helpers ───────────────────────────────────────────────────
 
 pub fn paper_cols(mm: u8) -> usize {
@@ -82,6 +84,25 @@ impl EscPos {
         self.println(&format!("{}{}", " ".repeat(pad), s));
     }
 
+    /// Print a QR code (ESC/POS GS ( k sequence — model 2, ECC M, size 6).
+    /// `data` is the raw bytes to encode (Byte mode).
+    pub fn qr_code(&mut self, data: &[u8]) {
+        // Model 2
+        self.raw(&[0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]);
+        // Size 6 (4 = medium-small, 6 = medium, 8 = larger)
+        self.raw(&[0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06, 0x00]);
+        // Error correction M (49)
+        self.raw(&[0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31, 0x00]);
+        // Store data: pL pH = (len+3) split into low/high byte
+        let n = data.len() + 3;
+        let pl = (n & 0xFF) as u8;
+        let ph = ((n >> 8) & 0xFF) as u8;
+        self.raw(&[0x1D, 0x28, 0x6B, pl, ph, 0x31, 0x50, 0x30]);
+        self.raw(data);
+        // Print
+        self.raw(&[0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30, 0x00]);
+    }
+
     pub fn cut(&mut self) {
         self.raw(&[0x0A, 0x0A, 0x0A, 0x0A]); // 4 line feeds
         self.raw(&[0x1D, 0x56, 0x42, 0x03]);  // GS V B 3 — partial cut
@@ -93,7 +114,7 @@ impl EscPos {
 
 // ── Document builders ─────────────────────────────────────────
 
-use crate::commands::print::{ReceiptDoc, RapportDoc};
+use crate::commands::print::{ReceiptDoc, RapportDoc, KitchenDoc};
 
 pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     let mut p = EscPos::new(paper_mm);
@@ -166,6 +187,22 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
         if change > 0 { p.lr("Rendu monnaie", &fmt_cents(change)); }
     }
     p.sep('-');
+
+    // Fido loyalty QR code
+    if let Some(ref b64) = doc.loyalty_qr {
+        if let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(b64) {
+            p.lf();
+            p.align_center();
+            p.bold(true);
+            p.println("Scannez avec l'app Fido");
+            p.bold(false);
+            p.println("pour cumuler vos points !");
+            p.lf();
+            p.qr_code(&bytes);
+            p.lf();
+            p.align_left();
+        }
+    }
 
     // Footer
     p.align_center();
@@ -285,4 +322,44 @@ fn payment_label(method: &str) -> String {
         "VIREMENT"    => "Virement".to_string(),
         _             => method.to_string(),
     }
+}
+
+pub fn build_kitchen(doc: &KitchenDoc, paper_mm: u8) -> Vec<u8> {
+    let mut p = EscPos::new(paper_mm);
+
+    // Header — table name large + covers
+    p.align_center();
+    p.bold(true);
+    p.double(true);
+    p.println(&doc.table_name);
+    p.double(false);
+    let covers_label = if doc.covers == 1 { "1 couvert".to_string() } else { format!("{} couverts", doc.covers) };
+    p.println(&covers_label);
+    if let Some(ref subtitle) = doc.subtitle {
+        p.bold(true);
+        p.println(subtitle);
+        p.bold(false);
+    }
+    p.bold(false);
+    p.lf();
+
+    let now = chrono::Utc::now().format("%H:%M").to_string();
+    p.println(&now);
+    p.align_left();
+    p.sep('=');
+
+    // Lines — large, bold, no price
+    for line in &doc.lines {
+        p.bold(true);
+        p.double(true);
+        let qty_label = format!("{}x  {}", line.quantity, line.product_name);
+        p.println(&qty_label);
+        p.double(false);
+        p.bold(false);
+    }
+
+    p.sep('=');
+    p.lf();
+    p.cut();
+    p.build()
 }

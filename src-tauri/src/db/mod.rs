@@ -1,12 +1,14 @@
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    SqlitePool,
+};
+use std::str::FromStr;
 use tauri::{AppHandle, Manager};
 
 pub mod models;
 
 pub type DbPool = SqlitePool;
 
-/// Initialise la base de données SQLite et applique les migrations.
-/// Le fichier est créé dans le répertoire de données de l'application.
 pub async fn init(app: &AppHandle) -> anyhow::Result<DbPool> {
     let data_dir = app
         .path()
@@ -19,22 +21,17 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<DbPool> {
     let db_path = data_dir.join(db_name);
     let db_url = format!("sqlite://{}?mode=rwc", db_path.display());
 
+    // Apply PRAGMAs via connect options so every pool connection gets them,
+    // not just the first one (execute(&pool) only touches one connection).
+    let options = SqliteConnectOptions::from_str(&db_url)?
+        .pragma("foreign_keys", "ON")
+        .journal_mode(SqliteJournalMode::Wal);
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&db_url)
+        .connect_with(options)
         .await?;
 
-    // Active les foreign keys (désactivées par défaut dans SQLite)
-    sqlx::query("PRAGMA foreign_keys = ON;")
-        .execute(&pool)
-        .await?;
-
-    // Active le WAL pour de meilleures performances en lecture concurrente
-    sqlx::query("PRAGMA journal_mode = WAL;")
-        .execute(&pool)
-        .await?;
-
-    // Applique les migrations dans l'ordre
     sqlx::migrate!("src/db/migrations").run(&pool).await?;
 
     Ok(pool)

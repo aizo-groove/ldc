@@ -112,6 +112,22 @@ pub async fn create_transaction(
         let line_id = uuid::Uuid::new_v4().to_string();
         let line_no = (i + 1) as i64;
 
+        // Null out product_id if the product was deleted since the order was opened.
+        // product_name/sku are snapshotted so NF525 traceability is preserved.
+        let product_id: Option<String> = match &line.product_id {
+            Some(pid) => {
+                let exists: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)"
+                )
+                .bind(pid)
+                .fetch_one(&*pool)
+                .await
+                .unwrap_or(false);
+                if exists { Some(pid.clone()) } else { None }
+            }
+            None => None,
+        };
+
         sqlx::query(
             r#"INSERT INTO transaction_lines
                (id, transaction_id, line_no, product_id, product_name, product_sku,
@@ -122,7 +138,7 @@ pub async fn create_transaction(
         .bind(&line_id)
         .bind(&tx_id)
         .bind(line_no)
-        .bind(&line.product_id)
+        .bind(&product_id)
         .bind(&line.product_name)
         .bind(&line.product_sku)
         .bind(line.quantity)
@@ -141,7 +157,7 @@ pub async fn create_transaction(
             id: line_id,
             transaction_id: tx_id.clone(),
             line_no,
-            product_id: line.product_id.clone(),
+            product_id,
             product_name: line.product_name.clone(),
             product_sku: line.product_sku.clone(),
             quantity: line.quantity,

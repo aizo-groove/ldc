@@ -8,13 +8,15 @@ export type DisplayItem = { name: string; qty: number; total: number };
 export type DisplayPayload =
   | { type: "idle";     storeName: string }
   | { type: "cart";     storeName: string; items: DisplayItem[]; total: number }
-  | { type: "thankyou"; storeName: string; total: number };
+  | { type: "thankyou"; storeName: string; total: number }
+  | { type: "fido-qr";  storeName: string; total: number; payloadB64url: string };
 
-export async function openCustomerDisplayWindow(): Promise<void> {
+/** Returns true if a new window was created (caller should delay before emitting). */
+export async function openCustomerDisplayWindow(): Promise<boolean> {
   const existing = await WebviewWindow.getByLabel(DISPLAY_LABEL);
   if (existing) {
     await existing.setFocus();
-    return;
+    return false;
   }
   new WebviewWindow(DISPLAY_LABEL, {
     url: "/#customer-display",
@@ -25,6 +27,7 @@ export async function openCustomerDisplayWindow(): Promise<void> {
     resizable: true,
     alwaysOnTop: false,
   });
+  return true;
 }
 
 export async function closeCustomerDisplayWindow(): Promise<void> {

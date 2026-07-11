@@ -1,7 +1,9 @@
 pub mod caisse;
 pub mod dev;
 pub mod compliance;
+pub mod loyalty;
 pub mod print;
+pub mod printers;
 pub mod cashiers;
 pub mod catalogue;
 pub mod journal;

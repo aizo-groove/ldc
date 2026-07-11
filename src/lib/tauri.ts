@@ -8,6 +8,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import type { Category, Product, TvaRate } from "@/types/catalogue";
+import type { LoyaltyConfig, LoyaltyProgram, LoyaltyProgramInput, LoyaltyQrResult, RctInfo } from "@/types/loyalty";
 import type {
   CartLineInput,
   PaymentInput,
@@ -98,20 +99,28 @@ export const verifyChain = (): Promise<number> => invoke("verify_chain");
 
 // ── Open orders (tickets table) ───────────────────────────
 
-import type { OpenOrderFull, OpenOrderLineInput } from "@/types/open_order";
+import type { OpenOrder, OpenOrderFull, OpenOrderLineInput } from "@/types/open_order";
 
 export const getTableOrder = (tableId: string): Promise<OpenOrderFull | null> =>
   invoke("get_table_order", { tableId });
 
+export const listOpenOrders = (): Promise<OpenOrder[]> =>
+  invoke("list_open_orders");
+
 export const saveTableOrder = (
   tableId: string,
   sessionId: string | null,
+  covers: number,
+  note: string | null,
   lines: OpenOrderLineInput[]
 ): Promise<OpenOrderFull> =>
-  invoke("save_table_order", { tableId, sessionId, lines });
+  invoke("save_table_order", { tableId, sessionId, covers, note, lines });
 
 export const deleteTableOrder = (tableId: string): Promise<void> =>
   invoke("delete_table_order", { tableId });
+
+export const markSentToKitchen = (tableId: string): Promise<void> =>
+  invoke("mark_sent_to_kitchen", { tableId });
 
 // ── Tables ────────────────────────────────────────────────
 
@@ -148,7 +157,26 @@ export const verifyCashierPin = (cashierId: string, pin: string): Promise<boolea
 
 // ── Print ─────────────────────────────────────────────────────
 
-import type { EscPosReceiptDoc, EscPosRapportDoc, PrinterStatus } from "@/features/print/types";
+import type { EscPosReceiptDoc, EscPosRapportDoc, EscPosKitchenDoc, PrinterStatus } from "@/features/print/types";
+
+// ── Printers ──────────────────────────────────────────────────
+
+import type { Printer, PrinterInput } from "@/types/printer";
+
+export const listPrinters = (): Promise<Printer[]> =>
+  invoke("list_printers");
+
+export const createPrinter = (input: PrinterInput): Promise<Printer> =>
+  invoke("create_printer", { input });
+
+export const updatePrinter = (id: string, input: PrinterInput): Promise<Printer> =>
+  invoke("update_printer", { id, input });
+
+export const deletePrinter = (id: string): Promise<void> =>
+  invoke("delete_printer", { id });
+
+export const testPrinterById = (id: string): Promise<PrinterStatus> =>
+  invoke("test_printer_by_id", { id });
 
 export const printReceiptEscpos = (doc: EscPosReceiptDoc): Promise<void> =>
   invoke("print_receipt_escpos", { doc });
@@ -156,8 +184,14 @@ export const printReceiptEscpos = (doc: EscPosReceiptDoc): Promise<void> =>
 export const printRapportEscpos = (doc: EscPosRapportDoc): Promise<void> =>
   invoke("print_rapport_escpos", { doc });
 
+export const printKitchenEscpos = (doc: EscPosKitchenDoc): Promise<void> =>
+  invoke("print_kitchen_escpos", { doc });
+
 export const testPrinter = (): Promise<PrinterStatus> =>
   invoke("test_printer");
+
+export const testKitchenPrinter = (): Promise<PrinterStatus> =>
+  invoke("test_kitchen_printer");
 
 export const openCashDrawer = (pin: number): Promise<void> =>
   invoke("open_cash_drawer", { pin });
@@ -190,6 +224,46 @@ export interface JournalEntry {
 
 export const listJournalEntries = (limit?: number): Promise<JournalEntry[]> =>
   invoke("list_journal_entries", { limit: limit ?? null });
+
+// ── Loyalty (Fido) ─────────────────────────────────────────
+
+export const getLoyaltyConfig = (): Promise<LoyaltyConfig> =>
+  invoke("get_loyalty_config");
+
+export const saveLoyaltyConfig = (config: LoyaltyConfig): Promise<void> =>
+  invoke("save_loyalty_config", { config });
+
+export const testLoyaltyConnection = (): Promise<void> =>
+  invoke("test_loyalty_connection");
+
+export const getCachedProgram = (): Promise<LoyaltyProgram | null> =>
+  invoke("get_cached_program");
+
+export const saveLoyaltyProgram = (program: LoyaltyProgramInput): Promise<LoyaltyProgram> =>
+  invoke("save_loyalty_program", { program });
+
+export const deleteLocalProgram = (): Promise<void> =>
+  invoke("delete_local_program");
+
+export interface QrLineItem {
+  name:           string;
+  quantity:       number;
+  unitPriceCents: number;
+}
+
+export const generateLoyaltyQr = (
+  transactionId: string,
+  totalCents: number,
+  taxCents: number,
+  items: QrLineItem[],
+): Promise<LoyaltyQrResult | null> =>
+  invoke("generate_loyalty_qr", { transactionId, totalCents, taxCents, items });
+
+export const validateRctLocal = (rctRaw: string): Promise<RctInfo> =>
+  invoke("validate_rct_local", { rctRaw });
+
+export const consumeRctLocal = (rctInfo: RctInfo): Promise<void> =>
+  invoke("consume_rct_local", { rctInfo });
 
 // ── Dev tools (debug builds only) ─────────────────────────
 

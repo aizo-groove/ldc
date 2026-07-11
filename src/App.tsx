@@ -15,13 +15,15 @@ import { SettingsView } from "@/features/settings/SettingsView";
 import { TableView } from "@/features/tables/TableView";
 import { PrintModal } from "@/features/print/PrintModal";
 import { PrintArea } from "@/features/print/PrintArea";
+import { ScreenReceiptOverlay } from "@/features/print/ScreenReceiptOverlay";
 import { FeedbackModal } from "@/features/feedback/FeedbackModal";
 import { UpdateBanner } from "@/features/updater/UpdateBanner";
 import { DevToolbar } from "@/features/dev/DevToolbar";
 import { DonationModal } from "@/features/donation/DonationModal";
 import { CashierSelectView } from "@/features/cashiers/CashierSelectView";
-import { createTransaction, deleteTableOrder, updateTableStatus, getSetting, listCashiers } from "@/lib/tauri";
+import { createTransaction, deleteTableOrder, updateTableStatus, getSetting, listCashiers, generateLoyaltyQr } from "@/lib/tauri";
 import { useTablesStore } from "@/features/tables/store";
+import { useLoyaltyStore } from "@/features/loyalty/store";
 import { OnboardingView } from "@/features/onboarding/OnboardingView";
 import type { PaymentInput, TransactionFull, PersonGroup } from "@/types/transaction";
 import type { Cashier } from "@/types/cashier";
@@ -39,7 +41,7 @@ import { getVersion } from "@tauri-apps/api/app";
 type AppScreen =
   | { type: "caisse" }
   | { type: "paiement"; orderNumber: number; totalTtc: number }
-  | { type: "confirmation"; orderNumber: number; totalTtc: number; transaction: TransactionFull; personGroups: PersonGroup[] };
+  | { type: "confirmation"; orderNumber: number; totalTtc: number; transaction: TransactionFull; personGroups: PersonGroup[]; loyaltyQr: string | null };
 
 let orderCounter = 8490;
 
@@ -111,6 +113,7 @@ export default function App() {
   useEffect(() => {
     initSession();
     initSettings();
+    useLoyaltyStore.getState().load();
     getSetting("customer_display_enabled").then((v) => {
       if (v === "true") openCustomerDisplayWindow().catch(() => {});
     });
@@ -190,12 +193,26 @@ export default function App() {
         setTableContext(null);
       }
 
+      // Generate Fido QR — best-effort, never blocks the flow
+      const taxCents = result.transaction.total_ttc - result.transaction.total_ht;
+      const qrResult = await generateLoyaltyQr(
+        result.transaction.id,
+        result.transaction.total_ttc,
+        taxCents,
+        result.lines.map((l) => ({
+          name:           l.product_name,
+          quantity:       l.quantity,
+          unitPriceCents: l.unit_price_ttc,
+        })),
+      ).catch(() => null);
+
       setScreen({
         type: "confirmation",
         orderNumber: current.orderNumber,
         totalTtc: current.totalTtc,
         transaction: result,
         personGroups: groups,
+        loyaltyQr: qrResult?.payload_b64url ?? null,
       });
     } catch (e) {
       setPaymentError(`Erreur lors de l'enregistrement : ${e}`);
@@ -227,6 +244,7 @@ export default function App() {
             orderNumber={screen.orderNumber}
             transaction={screen.transaction}
             personGroups={screen.personGroups}
+            loyaltyQr={screen.loyaltyQr}
             onNewSale={returnToCaisse}
           />
         );
@@ -243,7 +261,11 @@ export default function App() {
           <TopBar
             cashierName={cashierName}
             onSwitchCashier={clearCashier}
-            onPrinterSettings={() => { setRoute("parametres"); setScreen({ type: "caisse" }); }}
+            onPrinterSettings={() => {
+              useNavStore.getState().setSettingsTab("materiel");
+              setRoute("parametres");
+              setScreen({ type: "caisse" });
+            }}
           />
           <SideNav
             activeRoute={activeRoute}
@@ -285,6 +307,7 @@ export default function App() {
       <CustomerDisplaySync screen={screen} />
       <PrintModal />
       <PrintArea />
+      <ScreenReceiptOverlay />
       <FeedbackModal />
       <DonationModal />
       <UpdateBanner />

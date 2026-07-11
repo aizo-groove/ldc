@@ -2,7 +2,7 @@ import { usePrintStore } from "./store";
 import type { PrintJob, EscPosReceiptDoc, EscPosRapportDoc } from "./types";
 import type { TransactionFull } from "@/types/transaction";
 import type { RapportX } from "@/types/session";
-import { printReceiptEscpos, printRapportEscpos, getSetting } from "@/lib/tauri";
+import { printReceiptEscpos, printRapportEscpos, getSetting, generateLoyaltyQr, type QrLineItem } from "@/lib/tauri";
 
 // ── Format helpers ────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ async function getStoreName(): Promise<string> {
   }
 }
 
-function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: string): EscPosReceiptDoc {
+function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: string, loyaltyQr?: string | null): EscPosReceiptDoc {
   const { transaction, lines, payments } = tx;
   const tvaMap = new Map<number, { tva: number; ht: number }>();
   for (const l of lines) {
@@ -45,6 +45,7 @@ function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: s
     tva_groups:     Array.from(tvaMap.entries()).map(([rate_pct, v]) => ({ rate_pct, ...v })),
     hash:           transaction.hash,
     is_avoir:       transaction.type === "AVOIR",
+    loyalty_qr:     loyaltyQr ?? null,
   };
 }
 
@@ -95,8 +96,9 @@ export function usePrint() {
 /** Called from PrintModal when the user picks a format. */
 export async function executePrint(
   job: PrintJob,
-  format: "escpos" | "pdf" | "json",
+  format: "escpos" | "screen" | "pdf" | "json",
   cashierName?: string,
+  precomputedLoyaltyQr?: string | null,
 ): Promise<void> {
   const storeName = await getStoreName();
 
@@ -106,8 +108,28 @@ export async function executePrint(
 
     switch (format) {
       case "escpos": {
-        const doc = buildReceiptDoc(tx, storeName, cashierName);
+        // Reuse QR generated at payment time; regenerate only if not provided
+        let loyaltyQr = precomputedLoyaltyQr ?? null;
+        if (loyaltyQr === undefined || loyaltyQr === null) {
+          const taxCents = tx.transaction.total_ttc - tx.transaction.total_ht;
+          const qrItems: QrLineItem[] = tx.lines.map((l) => ({
+            name:           l.product_name,
+            quantity:       l.quantity,
+            unitPriceCents: l.unit_price_ttc,
+          }));
+          loyaltyQr = await generateLoyaltyQr(
+            tx.transaction.id,
+            tx.transaction.total_ttc,
+            taxCents,
+            qrItems,
+          ).then((r) => r?.payload_b64url ?? null).catch(() => null);
+        }
+        const doc = buildReceiptDoc(tx, storeName, cashierName, loyaltyQr);
         await printReceiptEscpos(doc);
+        break;
+      }
+      case "screen": {
+        window.dispatchEvent(new CustomEvent("ldc:screen-receipt", { detail: job }));
         break;
       }
       case "pdf": {
@@ -130,6 +152,10 @@ export async function executePrint(
       case "escpos": {
         const doc = buildRapportDoc(rapport, storeName);
         await printRapportEscpos(doc);
+        break;
+      }
+      case "screen": {
+        window.dispatchEvent(new CustomEvent("ldc:screen-receipt", { detail: job }));
         break;
       }
       case "pdf": {

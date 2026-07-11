@@ -44,9 +44,9 @@ function luhnCheck(digits: string): boolean {
   return sum % 10 === 0;
 }
 
-function siretError(v: string): string | null {
+function siretError(v: string, touched = false): string | null {
   if (!v) return null;
-  if (v.length < 14) return null; // still typing — wait for 14 digits
+  if (v.length < 14) return touched ? "SIRET incomplet — 14 chiffres requis." : null;
   if (!luhnCheck(v)) return "SIRET invalide — vérifiez les chiffres.";
   return null;
 }
@@ -62,6 +62,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
   const [profile, setProfile]     = useState<BusinessProfile | null>(null);
   const [storeName, setStoreName] = useState("");
   const [siret, setSiret]         = useState("");
+  const [siretTouched, setSiretTouched] = useState(false);
   const [printerIp, setPrinterIp] = useState("");
   const [printerPort, setPrinterPort] = useState("9100");
   const [saving, setSaving]       = useState(false);
@@ -96,7 +97,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
 
   if (step === 0) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8 overflow-hidden">
         <div className="flex flex-col items-center gap-6 text-center max-w-sm">
           <img src={logo} alt="LDC" className="w-24 h-24 rounded-3xl" />
           <div>
@@ -122,7 +123,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
 
   if (step === 1) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8 overflow-hidden">
         <ProgressDots step={step} />
 
         <div className="text-center">
@@ -177,8 +178,11 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
   // ── Step 2 — Informations établissement ─────────────────
 
   if (step === 2) {
+    const siretMsg = siretError(siret, siretTouched);
+    const canContinue = !!storeName.trim() && (siret.length === 0 || siret.length === 14) && !siretError(siret);
+
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8 overflow-hidden">
         <ProgressDots step={step} />
 
         <div className="text-center">
@@ -195,7 +199,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
               autoFocus
               value={storeName}
               onChange={(e) => setStoreName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && storeName.trim()) next(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && canContinue) next(); }}
               placeholder="Ex : Boulangerie Dupont"
               className="w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/40 text-on-surface placeholder:text-outline/50"
             />
@@ -207,22 +211,24 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
             <input
               value={siret}
               onChange={(e) => setSiret(e.target.value.replace(/\D/g, "").slice(0, 14))}
+              onBlur={() => setSiretTouched(true)}
               placeholder="12345678900000"
               className={cn(
                 "w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 text-on-surface placeholder:text-outline/50 tracking-widest",
-                siretError(siret) ? "ring-2 ring-error/50 focus:ring-error/50" : "focus:ring-primary/40"
+                siretMsg ? "ring-2 ring-error/50 focus:ring-error/50" : "focus:ring-primary/40"
               )}
             />
-            {siretError(siret) && (
-              <p className="text-[11px] text-error mt-1.5">{siretError(siret)}</p>
-            )}
+            {/* Fixed height reserves space so the button never shifts when error appears/disappears */}
+            <div className="h-5 mt-1">
+              {siretMsg && <p className="text-[11px] text-error leading-none">{siretMsg}</p>}
+            </div>
           </div>
         </div>
 
         <button
           onClick={next}
-          disabled={!storeName.trim() || !!siretError(siret)}
-          className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"
+          disabled={!canContinue}
+          className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition disabled:opacity-30 disabled:pointer-events-none"
         >
           Continuer <ChevronRight size={16} />
         </button>
@@ -234,7 +240,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
 
   if (step === 3) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8 overflow-hidden">
         <ProgressDots step={step} />
 
         <div className="flex flex-col items-center gap-3 text-center">
@@ -273,7 +279,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-5">
           <button
             onClick={next}
             disabled={!printerIp.trim()}
@@ -283,9 +289,9 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
           </button>
           <button
             onClick={next}
-            className="text-xs text-outline hover:text-on-surface uppercase tracking-widest font-bold transition-colors py-2"
+            className="text-[11px] text-outline/60 hover:text-outline transition-colors underline underline-offset-2"
           >
-            Configurer plus tard
+            Passer cette étape
           </button>
         </div>
       </div>
@@ -295,7 +301,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
   // ── Step 4 — C'est parti ! ───────────────────────────────
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8">
+    <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-10 px-8 overflow-hidden">
       <ProgressDots step={step} />
 
       <div className="flex flex-col items-center gap-4 text-center">

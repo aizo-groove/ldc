@@ -15,7 +15,7 @@ Lors du tout premier démarrage (ou sur une installation vierge), LDC affiche un
 | **Bienvenue** | Présentation du logiciel |
 | **Type de commerce** | Restaurant, Café/Bar ou Commerce — adapte l'interface |
 | **Établissement** | Nom du commerce (obligatoire) et SIRET (optionnel) |
-| **Imprimante** | Adresse IP et port de l'imprimante thermique (optionnel — "Configurer plus tard") |
+| **Imprimante** | Configuration rapide de l'imprimante (optionnel — "Configurer plus tard" ; réglages complets dans Paramètres → Matériel) |
 | **C'est parti !** | Résumé des paramètres saisis, option visite guidée, bouton pour ouvrir la caisse |
 
 Sur la dernière étape, une case **Démarrer la visite guidée** est cochée par défaut. Si vous la laissez cochée, la visite guidée se lance automatiquement une fois votre premier caissier créé.
@@ -122,7 +122,7 @@ Après validation, un écran de confirmation affiche :
 - Le numéro et la date de la transaction
 - Le total encaissé et les moyens de paiement utilisés
 - La monnaie rendue (si espèces)
-- Un bouton **Imprimer le ticket** (si une imprimante thermique est configurée)
+- Un bouton **Imprimer le ticket** (ouvre le modal d'impression avec les imprimantes configurées)
 
 Tapez **Nouvelle vente** pour revenir immédiatement à l'écran de vente.
 
@@ -140,16 +140,39 @@ L'écran affiche votre plan de salle avec toutes les tables positionnées. Chaqu
 | Rouge (fond + badge) | **Occupé** | Table avec un ticket ouvert |
 | Bleu (fond + badge) | **Addition** | Table en attente de paiement |
 
+Lorsqu'un ticket est ouvert sur une table, la carte affiche :
+- Le **nombre de couverts réels** saisis sur le ticket (et non le nombre de places de la table).
+- Un badge **"cuisine ✓"** en vert si les articles ont déjà été envoyés en cuisine au moins une fois.
+
 ### Naviguer entre les salles
 
 Si votre établissement a plusieurs salles, les onglets en haut permettent de basculer. L'onglet **Toutes les salles** affiche l'ensemble.
 
-### Ouvrir, modifier, encaisser un ticket
+### Ouvrir et modifier un ticket de table
 
 Tapez sur une table pour ouvrir son ticket. Ajoutez des articles depuis le catalogue intégré, modifiez les quantités, puis :
 
 - **Enregistrer** — sauvegarde le ticket sans encaisser. La table passe à **Occupé** et le ticket survit à une fermeture du logiciel.
 - **Régler** — passe à l'écran de paiement avec le panier pré-chargé. Après validation, le ticket est supprimé et la table repasse à **Libre**.
+
+### Envoyer en cuisine
+
+Le bouton **Envoyer en cuisine** imprime un ticket cuisine ESC/POS avec la liste des articles à préparer.
+
+- **Premier envoi** : tous les articles du ticket sont inclus.
+- **Envois suivants** : seuls les articles ajoutés depuis le dernier envoi apparaissent. Le ticket porte la mention **COMPLÉMENT** pour alerter la cuisine qu'il s'agit d'un ajout.
+
+Les articles pas encore envoyés en cuisine sont mis en évidence dans la liste (encadrement coloré). Une fois l'envoi effectué, ils passent à l'état normal.
+
+> Si aucune imprimante cuisine n'est configurée, la caisse imprime le ticket cuisine sur l'imprimante de caisse en fallback. Si aucune imprimante n'est configurée du tout, le ticket s'affiche à l'écran.
+
+### Note de commande
+
+Un champ **Note** est disponible en bas du ticket de table. Utilisez-le pour les allergènes, les cuissons, ou toute instruction spéciale. La note est imprimée sur le ticket cuisine.
+
+### Encaisser une table
+
+Le bouton **Régler** pré-remplit le panier avec les articles du ticket et bascule la table en statut **Addition** automatiquement. Après validation du paiement, la table repasse à **Libre**.
 
 ### Modifier le plan de salle
 
@@ -219,8 +242,27 @@ Trois profils disponibles :
 
 Gérez tous vos appareils depuis un panneau unique. Sélectionnez un appareil dans la grille pour afficher sa configuration.
 
-**Imprimante thermique**
-Renseignez l'adresse IP et le port (par défaut 9100) de votre imprimante réseau. Choisissez la largeur du papier (58 ou 80 mm). Le bouton **Tester la connexion** imprime une page de test.
+**Imprimantes**
+
+LDC gère une liste nommée d'imprimantes. Chaque imprimante a un **type** et un ou plusieurs **rôles**.
+
+| Type | Description |
+|------|-------------|
+| **Thermique TCP/IP** | Imprimante ESC/POS connectée en réseau (IP + port) |
+| **Affichage écran** | Aucune imprimante — le ticket s'affiche en plein écran sur la caisse |
+
+| Rôle | Utilisation |
+|------|-------------|
+| **Tickets clients** | Ticket de caisse remis au client et rapport Z |
+| **Tickets cuisine** | Ticket cuisine envoyé lors d'un "Envoyer en cuisine" |
+
+Une même imprimante peut avoir les deux rôles simultanément — utile si vous n'avez qu'une seule imprimante.
+
+**Ajouter une imprimante** : cliquez sur le bouton **+ Ajouter une imprimante** en bas de la liste, renseignez le nom, le type, l'IP/port (si thermique), la largeur du papier (58 ou 80 mm) et les rôles.
+
+**Tester la connexion** : le bouton Wi-Fi sur chaque carte d'imprimante thermique envoie un paquet de test et indique **OK** ou **KO** selon la réponse.
+
+> Si aucune imprimante n'est configurée, les formats PDF et JSON restent toujours disponibles comme alternatives d'impression.
 
 **Tiroir-caisse**
 Connecté à l'imprimante via le connecteur RJ-11. Activez le tiroir, choisissez le connecteur (Pin 2 le plus courant), et configurez l'ouverture automatique à chaque vente en espèces. Testez l'ouverture avec le bouton dédié.
@@ -282,6 +324,9 @@ Le **Rapport X** affiche le récapitulatif de la session en cours sans la clôtu
 ---
 
 ## Questions fréquentes
+
+**Je n'ai pas d'imprimante thermique. Puis-je quand même imprimer les tickets ?**
+Oui. Dans **Paramètres → Matériel → Imprimantes**, ajoutez une imprimante de type **Affichage écran**. Les tickets et tickets cuisine s'afficheront en plein écran sur la caisse. Vous pouvez toujours exporter en PDF depuis le modal d'impression.
 
 **Le logiciel peut-il fonctionner sans internet ?**
 Oui. LDC Caisse fonctionne entièrement hors ligne. Une connexion internet n'est nécessaire que pour les mises à jour automatiques.

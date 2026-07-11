@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Wifi, WifiOff, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText, Map } from "lucide-react";
+import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText, Map, Sliders } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "./store";
-import type { BusinessProfile } from "@/types/settings";
-import { getSetting, updateSetting, testPrinter, openCashDrawer, verifyChain, exportArchive, getDbPath } from "@/lib/tauri";
+import { useNavStore } from "@/components/layout/navStore";
+import type { BusinessProfile, FeatureFlags } from "@/types/settings";
+import { FLAG_META } from "@/types/settings";
+import { getSetting, updateSetting, openCashDrawer, verifyChain, exportArchive, getDbPath, listPrinters } from "@/lib/tauri";
 import { openCustomerDisplayWindow, closeCustomerDisplayWindow } from "@/features/customer-display/window";
-import type { PrinterStatus } from "@/features/print/types";
 import { useFeedbackStore } from "@/features/feedback/store";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useTutorialStore } from "@/features/tutorial/store";
+import { PrinterManager } from "./components/PrinterManager";
+import { IntegrationsSettings } from "./components/IntegrationsSettings";
 
 interface ProfileOption {
   id: BusinessProfile;
@@ -44,7 +47,56 @@ const PROFILES: ProfileOption[] = [
     features: ["Alertes de rupture de stock", "Scan code-barres (bientôt)"],
     missing: ["Partage de l'addition"],
   },
+  {
+    id: "custom",
+    label: "Personnalisé",
+    description: "Activez ou désactivez chaque fonctionnalité indépendamment.",
+    icon: <Sliders size={28} />,
+    features: [],
+    missing: [],
+  },
 ];
+
+const FLAG_KEYS: (keyof FeatureFlags)[] = [
+  "hasSplitBill",
+  "hasTableManagement",
+  "hasStockAlerts",
+  "hasBarcodeScanning",
+];
+
+function CustomFlagsSection() {
+  const flags   = useSettingsStore((s) => s.flags);
+  const setFlag = useSettingsStore((s) => s.setFlag);
+
+  return (
+    <div className="bg-surface-container-low rounded-2xl p-5 mt-4 space-y-5">
+      <p className="text-[10px] font-black uppercase tracking-widest text-outline">Fonctionnalités actives</p>
+      {FLAG_KEYS.map((key) => {
+        const { label, description } = FLAG_META[key];
+        return (
+          <div key={key} className="flex items-center justify-between gap-6">
+            <div>
+              <p className="text-sm font-bold text-on-surface">{label}</p>
+              <p className="text-[11px] text-outline">{description}</p>
+            </div>
+            <button
+              onClick={() => setFlag(key, !flags[key])}
+              className={cn(
+                "w-12 h-6 rounded-full transition-colors relative shrink-0",
+                flags[key] ? "bg-primary" : "bg-outline-variant/40"
+              )}
+            >
+              <span className={cn(
+                "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all",
+                flags[key] ? "left-6" : "left-0.5"
+              )} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 type DeviceId = "printer" | "cash_drawer" | "barcode_scanner" | "payment_terminal" | "customer_display";
 
@@ -58,14 +110,7 @@ const DEVICES: { id: DeviceId; label: string; description: string; icon: React.R
 
 function DevicesSection() {
   const [selected, setSelected] = useState<DeviceId>("printer");
-
-  // Printer state
-  const [printerIp,    setPrinterIp]    = useState("");
-  const [printerPort,  setPrinterPort]  = useState("9100");
-  const [printerPaper, setPrinterPaper] = useState("80");
-  const [printerSaved,   setPrinterSaved]   = useState(false);
-  const [printerTesting, setPrinterTesting] = useState(false);
-  const [printerStatus,  setPrinterStatus]  = useState<PrinterStatus | null>(null);
+  const [printerCount, setPrinterCount] = useState(0);
 
   // Cash drawer state
   const [drawerEnabled,  setDrawerEnabled]  = useState(false);
@@ -85,20 +130,16 @@ function DevicesSection() {
   const [displayOpen,    setDisplayOpen]    = useState(false);
 
   useEffect(() => {
+    // Load printer count for the device status badge
+    listPrinters().then((p) => setPrinterCount(p.length)).catch(() => {});
     Promise.all([
-      getSetting("printer_ip"),
-      getSetting("printer_port"),
-      getSetting("printer_paper_mm"),
       getSetting("cash_drawer_enabled"),
       getSetting("cash_drawer_pin"),
       getSetting("cash_drawer_auto_open"),
       getSetting("payment_terminal_model"),
       getSetting("payment_terminal_ref"),
       getSetting("customer_display_enabled"),
-    ]).then(([ip, port, paper, cdEn, cdPin, cdAuto, tmModel, tmRef, dispEn]) => {
-      if (ip)    setPrinterIp(ip);
-      if (port)  setPrinterPort(port);
-      if (paper) setPrinterPaper(paper);
+    ]).then(([cdEn, cdPin, cdAuto, tmModel, tmRef, dispEn]) => {
       setDrawerEnabled(cdEn === "true");
       if (cdPin) setDrawerPin(cdPin);
       setDrawerAutoOpen(cdAuto !== "false");
@@ -107,28 +148,6 @@ function DevicesSection() {
       setDisplayEnabled(dispEn === "true");
     });
   }, []);
-
-  const savePrinter = async () => {
-    await Promise.all([
-      updateSetting("printer_ip",       printerIp),
-      updateSetting("printer_port",     printerPort),
-      updateSetting("printer_paper_mm", printerPaper),
-    ]);
-    setPrinterSaved(true);
-    setTimeout(() => setPrinterSaved(false), 2000);
-  };
-
-  const testPrinterConn = async () => {
-    setPrinterTesting(true);
-    setPrinterStatus(null);
-    try {
-      setPrinterStatus(await testPrinter());
-    } catch {
-      setPrinterStatus({ connected: false, ip: printerIp, port: Number(printerPort) });
-    } finally {
-      setPrinterTesting(false);
-    }
-  };
 
   const saveDrawer = async () => {
     await Promise.all([
@@ -187,7 +206,7 @@ function DevicesSection() {
   };
 
   const deviceStatus = (id: DeviceId): "configured" | "active" | "info" | "none" => {
-    if (id === "printer")          return printerIp ? "configured" : "none";
+    if (id === "printer")          return printerCount > 0 ? "configured" : "none";
     if (id === "cash_drawer")      return drawerEnabled ? "active" : "none";
     if (id === "barcode_scanner")  return "info";
     if (id === "payment_terminal") return terminalRef ? "configured" : "none";
@@ -239,53 +258,7 @@ function DevicesSection() {
       <div className="bg-surface-container-low rounded-2xl p-5">
 
         {/* ── Imprimante ─────────────────────────────────── */}
-        {selected === "printer" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-2">Adresse IP</label>
-                <input value={printerIp} onChange={(e) => setPrinterIp(e.target.value)} placeholder="192.168.1.100"
-                  className="w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-2">Port</label>
-                <input value={printerPort} onChange={(e) => setPrinterPort(e.target.value)} placeholder="9100"
-                  className="w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-2">Largeur du papier</label>
-              <div className="flex gap-3">
-                {(["58", "80"] as const).map((w) => (
-                  <button key={w} onClick={() => setPrinterPaper(w)}
-                    className={cn("flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-all",
-                      printerPaper === w ? "border-primary bg-primary/10 text-primary" : "border-outline-variant/20 text-outline hover:border-outline-variant/50")}>
-                    {w} mm
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <button onClick={testPrinterConn} disabled={printerTesting || !printerIp}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold hover:bg-surface-bright transition-colors disabled:opacity-40">
-                {printerTesting ? <Loader2 size={14} className="animate-spin" /> : null}
-                Tester la connexion
-              </button>
-              <button onClick={savePrinter}
-                className={cn("flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
-                  printerSaved ? "bg-secondary/20 text-secondary" : "bg-primary text-on-primary hover:opacity-90 active:scale-95")}>
-                {printerSaved && <Check size={14} />}
-                {printerSaved ? "Sauvegardé" : "Sauvegarder"}
-              </button>
-              {printerStatus && (
-                <div className={cn("flex items-center gap-1.5 text-xs font-bold ml-auto", printerStatus.connected ? "text-secondary" : "text-error")}>
-                  {printerStatus.connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-                  {printerStatus.connected ? "Joignable" : "Introuvable"}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {selected === "printer" && <PrinterManager />}
 
         {/* ── Tiroir-caisse ──────────────────────────────── */}
         {selected === "cash_drawer" && (
@@ -1043,20 +1016,31 @@ de l'établissement identifié ci-dessus, atteste que :</p>
   );
 }
 
-type SettingsTab = "etablissement" | "materiel" | "conformite" | "apropos";
+type SettingsTab = "etablissement" | "materiel" | "fidelite" | "conformite" | "apropos";
 
-const TABS: { id: SettingsTab; label: string }[] = [
+const TABS: { id: SettingsTab; label: string; icon?: React.ReactNode }[] = [
   { id: "etablissement", label: "Établissement" },
   { id: "materiel",      label: "Matériel" },
+  { id: "fidelite",      label: "Intégrations" },
   { id: "conformite",    label: "Conformité NF525" },
   { id: "apropos",       label: "À propos" },
 ];
 
 export function SettingsView() {
   const [tab, setTab] = useState<SettingsTab>("etablissement");
-  const { profile, setProfile } = useSettingsStore();
+  const profile    = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const showFeedback = useFeedbackStore((s) => s.show);
   const setPending = useTutorialStore((s) => s.setPending);
+
+  const pendingTab    = useNavStore((s) => s.settingsTab);
+  const setSettingsTab = useNavStore((s) => s.setSettingsTab);
+  useEffect(() => {
+    if (pendingTab && TABS.some((t) => t.id === pendingTab)) {
+      setTab(pendingTab as SettingsTab);
+      setSettingsTab(null);
+    }
+  }, [pendingTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main className="mt-16 h-[calc(100vh-64px)] bg-surface flex flex-col overflow-hidden">
@@ -1071,13 +1055,13 @@ export function SettingsView() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                  "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5",
                   tab === t.id
                     ? "bg-surface text-on-surface shadow-sm"
                     : "text-outline hover:text-on-surface-variant"
                 )}
               >
-                {t.label}
+                {t.icon}{t.label}
               </button>
             ))}
           </div>
@@ -1093,7 +1077,7 @@ export function SettingsView() {
               <StoreInfoSection />
               <section>
                 <h2 className="text-[11px] font-black text-outline uppercase tracking-widest mb-4">Profil commercial</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {PROFILES.map((p) => {
                     const isActive = p.id === profile;
                     return (
@@ -1121,27 +1105,34 @@ export function SettingsView() {
                           <p className={cn("font-black text-base", isActive ? "text-primary" : "text-on-surface")}>{p.label}</p>
                           <p className="text-xs text-outline mt-0.5 leading-relaxed">{p.description}</p>
                         </div>
-                        <ul className="space-y-1.5">
-                          {p.features.map((f) => (
-                            <li key={f} className="flex items-center gap-2 text-xs text-on-surface-variant">
-                              <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />{f}
-                            </li>
-                          ))}
-                          {p.missing.map((f) => (
-                            <li key={f} className="flex items-center gap-2 text-xs text-outline line-through">
-                              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant shrink-0" />{f}
-                            </li>
-                          ))}
-                        </ul>
+                        {p.id === "custom" ? (
+                          <p className="text-[10px] text-outline italic">Configurer ci-dessous →</p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {p.features.map((f) => (
+                              <li key={f} className="flex items-center gap-2 text-xs text-on-surface-variant">
+                                <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />{f}
+                              </li>
+                            ))}
+                            {p.missing.map((f) => (
+                              <li key={f} className="flex items-center gap-2 text-xs text-outline line-through">
+                                <span className="w-1.5 h-1.5 rounded-full bg-outline-variant shrink-0" />{f}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </button>
                     );
                   })}
                 </div>
+                {profile === "custom" && <CustomFlagsSection />}
               </section>
             </>
           )}
 
           {tab === "materiel" && <DevicesSection />}
+
+          {tab === "fidelite" && <IntegrationsSettings />}
 
           {tab === "conformite" && <ComplianceSection />}
 

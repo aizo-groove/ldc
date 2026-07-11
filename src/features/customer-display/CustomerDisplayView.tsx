@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { Heart } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { formatCents } from "@/lib/utils";
 import type { DisplayPayload } from "./window";
+import { FidoQrBlock } from "@/features/loyalty/FidoQrBlock";
 
 function LiveClock() {
   const [time, setTime] = useState(new Date());
@@ -29,12 +31,13 @@ export function CustomerDisplayView() {
     return () => { unlisten.then((fn) => fn()); };
   }, []);
 
-  // Auto-return to idle after "merci" screen
+  // Auto-return to idle after "merci" (4 s) or fido-qr (45 s)
   useEffect(() => {
-    if (display.type !== "thankyou") return;
+    if (display.type !== "thankyou" && display.type !== "fido-qr") return;
+    const delay = display.type === "fido-qr" ? 45_000 : 4_000;
     const id = setTimeout(() => {
       setDisplay({ type: "idle", storeName: display.storeName });
-    }, 4000);
+    }, delay);
     return () => clearTimeout(id);
   }, [display]);
 
@@ -64,15 +67,42 @@ export function CustomerDisplayView() {
             {display.storeName}
           </p>
         )}
-        <svg viewBox="0 0 24 24" className="w-24 h-24 text-on-secondary-container" fill="none" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
+        <Heart
+          size={96}
+          className="text-on-secondary-container fill-current animate-[heartbeat_1s_ease-in-out]"
+        />
         <h1 className="text-6xl font-black tracking-tighter text-on-secondary-container">
           Merci !
         </h1>
         <p className="text-3xl font-bold text-on-secondary-container/60 tabular-nums">
           {formatCents(display.total)}
         </p>
+      </div>
+    );
+  }
+
+  if (display.type === "fido-qr") {
+    return (
+      <div className="h-screen bg-on-surface flex flex-col items-center justify-center gap-8 select-none px-8">
+        {display.storeName && (
+          <p className="text-xs font-black uppercase tracking-[0.4em] text-surface/40">
+            {display.storeName}
+          </p>
+        )}
+        <div className="bg-white rounded-3xl p-6 shadow-2xl">
+          <FidoQrBlock payloadB64url={display.payloadB64url} size={320} />
+        </div>
+        <div className="text-center space-y-2">
+          <p className="text-2xl font-black text-surface tracking-tight">
+            Fidélité Fido
+          </p>
+          <p className="text-surface/60 text-base">
+            Scannez avec votre app pour cumuler vos points
+          </p>
+          <p className="text-surface/40 text-2xl font-black tabular-nums mt-4">
+            {formatCents(display.total)}
+          </p>
+        </div>
       </div>
     );
   }

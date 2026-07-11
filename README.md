@@ -199,7 +199,15 @@ Ce logiciel cible la conformité NF525 pour le marché français :
 - La clôture Z enregistre les grands totaux et verrouille la session
 - L'export archive JSON permet de conserver l'intégralité des données fiscales 6 ans
 
-> Ce logiciel est en cours de développement. La certification NF525 complète requiert un audit accrédité. Utilisation en production à vos risques.
+> **Avertissement — NF525 :** LDC implémente les mécanismes techniques requis par NF525, mais n'a pas obtenu de certification officielle par un organisme accrédité AFNOR. L'utilisateur reste seul responsable de la conformité fiscale de son établissement. Consultez un expert-comptable pour toute question fiscale. Voir [docs/MENTIONS_LEGALES.md](docs/MENTIONS_LEGALES.md) pour la clause de non-responsabilité complète.
+
+---
+
+## Licence
+
+LDC est distribué sous licence **MIT** — voir [LICENSE](LICENSE).
+
+Le logiciel est fourni "tel quel", sans garantie d'aucune sorte. L'éditeur décline toute responsabilité pour les dommages résultant de son utilisation, y compris en matière fiscale. Voir [docs/MENTIONS_LEGALES.md](docs/MENTIONS_LEGALES.md).
 
 ---
 

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Printer, Mail, CheckCircle, Building2, ChevronDown, ChevronUp, X,
+  Printer, Mail, CheckCircle, Building2, ChevronDown, ChevronUp, X, Gift,
 } from "lucide-react";
 import { formatCents, cn } from "@/lib/utils";
 import type { TransactionFull, TransactionLine, Payment, PersonGroup } from "@/types/transaction";
 import { usePrintStore } from "@/features/print/store";
+import { useLoyaltyStore } from "@/features/loyalty/store";
+import { RctScanModal } from "@/features/loyalty/RctScanModal";
+import { FidoQrBlock } from "@/features/loyalty/FidoQrBlock";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@ interface ConfirmationViewProps {
   orderNumber:  number;
   transaction:  TransactionFull;
   personGroups: PersonGroup[];
+  loyaltyQr:    string | null;
   onNewSale:    () => void;
 }
 
@@ -64,10 +68,13 @@ export function ConfirmationView({
   orderNumber,
   transaction,
   personGroups,
+  loyaltyQr,
   onNewSale,
 }: ConfirmationViewProps) {
   const { transaction: tx, lines, payments } = transaction;
-  const triggerPrint = usePrintStore((s) => s.trigger);
+  const triggerPrint  = usePrintStore((s) => s.trigger);
+  const fidoEnabled   = useLoyaltyStore((s) => s.config?.fido_enabled ?? false);
+  const [rctOpen, setRctOpen] = useState(false);
 
   const [remainingMs, setRemainingMs] = useState(COUNTDOWN_MS);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -145,7 +152,7 @@ export function ConfirmationView({
                 lines={lines}
                 state={state}
                 onUpdate={(patch) => { stopCountdown(); updateReceipt(gIdx, patch); }}
-                onPrint={() => { stopCountdown(); triggerPrint({ type: "receipt", transaction }); }}
+                onPrint={() => { stopCountdown(); triggerPrint({ type: "receipt", transaction, loyaltyQr }); }}
                 onEmail={() => { stopCountdown(); console.log("TODO: email receipt for", group.label); }}
               />
             );
@@ -154,14 +161,31 @@ export function ConfirmationView({
 
         {/* ── Summary + actions ──────────────────────────── */}
         <div className="p-8 bg-surface-container-high rounded-xl border border-outline-variant/10 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div>
-            <p className="text-on-surface-variant font-bold uppercase tracking-widest text-xs mb-1">
-              Total Transaction
-            </p>
-            <p className="text-5xl font-black text-on-surface">{formatCents(tx.total_ttc)}</p>
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div>
+              <p className="text-on-surface-variant font-bold uppercase tracking-widest text-xs mb-1">
+                Total Transaction
+              </p>
+              <p className="text-5xl font-black text-on-surface">{formatCents(tx.total_ttc)}</p>
+            </div>
+
+            {loyaltyQr && (
+              <div className="bg-white rounded-2xl p-3 shadow-sm">
+                <FidoQrBlock payloadB64url={loyaltyQr} size={160} />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col items-end gap-4 w-full md:w-auto">
+            {fidoEnabled && (
+              <button
+                onClick={() => { stopCountdown(); setRctOpen(true); }}
+                className="w-full md:w-auto h-12 px-6 bg-primary/10 text-primary font-black text-sm rounded-full flex items-center justify-center gap-2 hover:bg-primary/20 active:scale-95 transition-all"
+              >
+                <Gift size={16} strokeWidth={1.6} />
+                Récompense Fido
+              </button>
+            )}
             <button
               onClick={() => { stopCountdown(); onNewSale(); }}
               className="w-full md:w-auto h-20 px-12 bg-secondary-container text-on-secondary-container font-black text-xl rounded-full flex items-center justify-center gap-4 active:scale-95 transition-all shadow-xl hover:brightness-110"
@@ -181,6 +205,8 @@ export function ConfirmationView({
           </div>
         </div>
       </div>
+
+      {rctOpen && <RctScanModal onClose={() => setRctOpen(false)} />}
     </main>
   );
 }

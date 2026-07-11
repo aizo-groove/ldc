@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@keyframes heartbeat {
+  0%   { transform: scale(0.6); opacity: 0; }
+  40%  { transform: scale(1.15); opacity: 1; }
+  60%  { transform: scale(0.95); }
+  80%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
 /* =====================================================
    DESIGN TOKENS — source : mockup UX v1
    Palette Material You dark, mode sombre permanent.

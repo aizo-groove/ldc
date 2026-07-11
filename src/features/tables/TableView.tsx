@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Plus, Pencil, Trash2, Settings2, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Settings2, Check, X, ChefHat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTablesStore } from "./store";
 import { TableFormModal } from "./components/TableFormModal";
 import { TableTicketPanel } from "./components/TableTicketPanel";
+import { listOpenOrders } from "@/lib/tauri";
 import type { RestaurantTable, TableStatus } from "@/types/table";
+import type { OpenOrder } from "@/types/open_order";
 
 interface TableViewProps {
   onTablePay: (tableId: string) => void;
@@ -37,6 +39,7 @@ const SHAPE_SIZE: Record<string, { w: number; h: number; radius: string }> = {
 
 interface TableCardProps {
   table: RestaurantTable;
+  openOrder?: OpenOrder;
   editMode: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   onEdit: () => void;
@@ -44,9 +47,12 @@ interface TableCardProps {
   onClick: () => void;
 }
 
-function TableCard({ table, editMode, onMouseDown, onEdit, onDelete, onClick }: TableCardProps) {
+function TableCard({ table, openOrder, editMode, onMouseDown, onEdit, onDelete, onClick }: TableCardProps) {
   const colors = STATUS_COLOR[table.status as TableStatus] ?? STATUS_COLOR.libre;
   const size   = SHAPE_SIZE[table.shape] ?? SHAPE_SIZE.square;
+
+  const coversLabel = openOrder ? `${openOrder.covers} cvt${openOrder.covers > 1 ? "s" : ""}` : `${table.seats} cvts`;
+  const kitchenSent   = openOrder?.sent_to_kitchen === 1;
 
   return (
     <div
@@ -76,8 +82,15 @@ function TableCard({ table, editMode, onMouseDown, onEdit, onDelete, onClick }: 
         {table.name}
       </span>
       <span className="text-[10px] font-bold text-outline mt-1">
-        {table.seats} cvts
+        {coversLabel}
       </span>
+
+      {/* Kitchen sent badge */}
+      {kitchenSent && (
+        <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-tertiary text-on-tertiary px-2 py-0.5 rounded-full text-[9px] font-black whitespace-nowrap">
+          <ChefHat size={8} /> cuisine ✓
+        </span>
+      )}
 
       {/* Edit mode overlay */}
       {editMode && (
@@ -111,6 +124,7 @@ export function TableView({ onTablePay }: TableViewProps) {
   const [editMode,       setEditMode]       = useState(false);
   const [modal,          setModal]          = useState<RestaurantTable | null | undefined>(undefined);
   const [selectedTable,  setSelectedTable]  = useState<RestaurantTable | null>(null);
+  const [openOrders,     setOpenOrders]     = useState<Record<string, OpenOrder>>({});
   // undefined = closed, null = create, RestaurantTable = edit
 
   // Room management state
@@ -123,7 +137,15 @@ export function TableView({ onTablePay }: TableViewProps) {
   const canvasRef  = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadAll = useCallback(async () => {
+    await load();
+    const orders = await listOpenOrders().catch(() => []);
+    const map: Record<string, OpenOrder> = {};
+    for (const o of orders) { if (o.table_id) map[o.table_id] = o; }
+    setOpenOrders(map);
+  }, [load]);
+
+  useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Drag handlers ────────────────────────────────────────
 
@@ -209,7 +231,7 @@ export function TableView({ onTablePay }: TableViewProps) {
     return (
       <TableTicketPanel
         table={selectedTable}
-        onClose={() => { setSelectedTable(null); load(); }}
+        onClose={() => { setSelectedTable(null); loadAll(); }}
         onPay={() => onTablePay(selectedTable.id)}
       />
     );
@@ -335,6 +357,7 @@ export function TableView({ onTablePay }: TableViewProps) {
               <TableCard
                 key={table.id}
                 table={table}
+                openOrder={openOrders[table.id]}
                 editMode={editMode}
                 onMouseDown={(e) => handleTableMouseDown(e, table)}
                 onEdit={() => setModal(table)}

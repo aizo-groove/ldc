@@ -2,7 +2,7 @@ import type { TransactionFull } from "@/types/transaction";
 import type { RapportX } from "@/types/session";
 
 export type PrintJob =
-  | { type: "receipt"; transaction: TransactionFull }
+  | { type: "receipt"; transaction: TransactionFull; loyaltyQr?: string | null }
   | { type: "rapport"; rapport: RapportX };
 
 // ── ESC/POS input shapes (mirror of Rust structs) ─────────────
@@ -28,6 +28,7 @@ export interface EscPosReceiptDoc {
   tva_groups: Array<{ rate_pct: number; tva: number; ht: number }>;
   hash:           string;
   is_avoir:       boolean;
+  loyalty_qr:     string | null;
 }
 
 export interface EscPosRapportDoc {
@@ -46,6 +47,16 @@ export interface EscPosRapportDoc {
   tva_1000:         number; ht_1000: number;
   tva_2000:         number; ht_2000: number;
   is_z:             boolean;
+}
+
+export interface EscPosKitchenDoc {
+  table_name: string;
+  covers:     number;
+  subtitle?:  string;
+  lines: Array<{
+    product_name: string;
+    quantity:     number;
+  }>;
 }
 
 export interface PrinterStatus {
