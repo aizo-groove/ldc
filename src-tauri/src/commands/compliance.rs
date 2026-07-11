@@ -115,10 +115,11 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
 /// Retourne le chemin absolu vers le fichier SQLite de la base de données.
 #[tauri::command]
 pub async fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
+    let db_name = if cfg!(debug_assertions) { "ldc-dev.db" } else { "ldc.db" };
     let path = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
-        .join("ldc.db");
+        .join(db_name);
     Ok(path.to_string_lossy().to_string())
 }

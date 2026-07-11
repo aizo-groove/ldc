@@ -245,6 +245,9 @@ pub async fn test_loyalty_connection(state: State<'_, AppState>) -> Result<(), S
         .to_string();
 
     let base = api_base(&config);
+    if base.is_empty() {
+        return Err("URL API Fido non configurée — renseignez l'URL dans les paramètres Fido.".to_string());
+    }
     fetch_token(&base, &mid, &partner_secret).await?;
     Ok(())
 }
@@ -386,6 +389,9 @@ async fn try_sync_program(
         None => return Ok(None),
     };
     let base = api_base(config);
+    if base.is_empty() {
+        return Err("URL API Fido non configurée — renseignez l'URL dans les paramètres Fido.".to_string());
+    }
 
     let token = fetch_token(&base, mid, partner_secret).await?;
 
