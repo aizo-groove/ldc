@@ -421,47 +421,85 @@ function ProgramStep() {
       ? <span className="text-[10px] text-outline flex items-center gap-1"><RotateCcw size={10} /> Non synchronisé</span>
       : null;
 
-  return (
-    <div className="space-y-5">
-      {/* Confirm recreate modal */}
-      {confirmWipe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-6">
-          <div className="w-full max-w-sm bg-surface-container-high rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center shrink-0">
-                <Trash2 size={18} className="text-error" />
+  const TYPE_LABELS: Record<LoyaltyProgramType, string> = {
+    points: "Points par euro",
+    stamps: "Carte à tampons",
+    cashback: "Cashback",
+    tiers: "Niveaux (Bronze / Silver / Gold)",
+    visits: "Visites",
+  };
+
+  // ── Vue lecture seule quand un programme est déjà enregistré ──
+  if (isExisting) {
+    return (
+      <div className="space-y-5">
+        {confirmWipe && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-6">
+            <div className="w-full max-w-sm bg-surface-container-high rounded-2xl p-6 space-y-4 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center shrink-0">
+                  <Trash2 size={18} className="text-error" />
+                </div>
+                <button onClick={() => setConfirmWipe(false)} className="text-outline hover:text-on-surface transition-colors">
+                  <X size={16} />
+                </button>
               </div>
-              <button onClick={() => setConfirmWipe(false)} className="text-outline hover:text-on-surface transition-colors">
-                <X size={16} />
-              </button>
-            </div>
-            <div>
-              <p className="font-black text-sm text-on-surface">Recréer le programme ?</p>
-              <p className="text-[11px] text-outline leading-snug mt-1.5">
-                Les clients déjà enrôlés conservent leur solde sur l'ancien programme, mais celui-ci disparaîtra de leur application Fido. Ils ne pourront plus cumuler ni utiliser leurs récompenses sur l'ancien programme. <span className="text-error font-bold">Cette action est irréversible.</span>
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmWipe(false)}
-                className="flex-1 h-9 rounded-xl border border-outline-variant/20 text-xs font-bold text-outline hover:text-on-surface transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleConfirmRecreate}
-                className="flex-1 h-9 rounded-xl bg-error text-on-error text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all"
-              >
-                Recréer
-              </button>
+              <div>
+                <p className="font-black text-sm text-on-surface">Recréer le programme ?</p>
+                <p className="text-[11px] text-outline leading-snug mt-1.5">
+                  Les clients déjà enrôlés conservent leur solde sur l'ancien programme, mais celui-ci disparaîtra de leur application Fido. Ils ne pourront plus cumuler ni utiliser leurs récompenses sur l'ancien programme. <span className="text-error font-bold">Cette action est irréversible.</span>
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmWipe(false)}
+                  className="flex-1 h-9 rounded-xl border border-outline-variant/20 text-xs font-bold text-outline hover:text-on-surface transition-colors">
+                  Annuler
+                </button>
+                <button onClick={handleConfirmRecreate}
+                  className="flex-1 h-9 rounded-xl bg-error text-on-error text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all">
+                  Recréer
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-widest text-outline">Programme de fidélité</p>
+          {syncBadge}
+        </div>
+
+        {/* Résumé lecture seule */}
+        <div className="bg-surface-container rounded-2xl p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-black text-sm text-on-surface">{program.name}</p>
+              <p className="text-[11px] text-outline mt-0.5">{TYPE_LABELS[program.type as LoyaltyProgramType] ?? program.type}</p>
+            </div>
+            <span className="shrink-0 flex items-center gap-1 text-[10px] text-outline bg-surface-container-high rounded-lg px-2 py-1">
+              <Lock size={9} /> Verrouillé
+            </span>
+          </div>
+          <p className="text-[10px] text-outline leading-snug">
+            Le programme est actif sur Fido. Pour modifier le type ou reconfigurer, recréez un nouveau programme ci-dessous.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setConfirmWipe(true)}
+          className="w-full h-10 rounded-xl border-2 border-error/30 text-error text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-error/5 transition-all active:scale-[0.98]"
+        >
+          <Trash2 size={14} /> Recréer un programme
+        </button>
+      </div>
+    );
+  }
+
+  // ── Formulaire de création (programme absent) ─────────────────
+  return (
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black uppercase tracking-widest text-outline">Programme de fidélité</p>
-        {syncBadge}
       </div>
 
       {/* Name */}
@@ -481,25 +519,10 @@ function ProgramStep() {
         </div>
       </ConfigField>
 
-      {/* Type — locked after first save */}
+      {/* Type */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[10px] font-black uppercase tracking-widest text-outline">Type</label>
-          {isExisting && (
-            <span className="flex items-center gap-1 text-[10px] text-outline">
-              <Lock size={9} /> Verrouillé
-            </span>
-          )}
-        </div>
-        <TypePicker value={type} onChange={handleTypeChange} disabled={isExisting} />
-        {isExisting && (
-          <button
-            onClick={() => setConfirmWipe(true)}
-            className="mt-2 flex items-center gap-1.5 text-[10px] text-outline hover:text-error transition-colors"
-          >
-            <Trash2 size={10} /> Recréer un programme (change le type)
-          </button>
-        )}
+        <label className="block text-[10px] font-black uppercase tracking-widest text-outline mb-2">Type</label>
+        <TypePicker value={type} onChange={handleTypeChange} disabled={false} />
       </div>
 
       <ProgramConfigForm type={type} config={config} onChange={setConfig} />

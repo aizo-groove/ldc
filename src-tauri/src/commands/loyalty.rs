@@ -462,8 +462,12 @@ pub async fn generate_loyalty_qr(
     if !enabled { return Ok(None); }
 
     let mid            = match kv_get(pool, "fido_mid").await.filter(|s| !s.is_empty())            { Some(v) => v, None => return Ok(None) };
-    let partner_id     = match kv_get(pool, "fido_partner_id").await.filter(|s| !s.is_empty())     { Some(v) => v, None => return Ok(None) };
     let partner_secret = match kv_get(pool, "fido_partner_secret").await.filter(|s| !s.is_empty()) { Some(v) => v, None => return Ok(None) };
+    // partner_id = UUID mid sans les tirets (merchants.partner_id = merchants.id sans hyphens)
+    // Peut être surchargé manuellement via fido_partner_id si nécessaire.
+    let partner_id = kv_get(pool, "fido_partner_id").await
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| mid.replace('-', ""));
 
     let base = kv_get(pool, "fido_api_url").await
         .filter(|s| !s.is_empty())
