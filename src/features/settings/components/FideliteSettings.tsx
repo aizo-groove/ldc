@@ -57,7 +57,6 @@ function CredentialsStep() {
     useLoyaltyStore();
   const [showSecret,    setShowSecret]    = useState(false);
   const [showPartnerId, setShowPartnerId] = useState(false);
-  const [showPrivKey,   setShowPrivKey]   = useState(false);
   const [redirecting,   setRedirecting]   = useState(false);
 
   if (!config) return null;
@@ -69,8 +68,7 @@ function CredentialsStep() {
   const hasCredentials =
     !!config.fido_mid?.trim() &&
     !!config.fido_partner_id?.trim() &&
-    !!config.fido_partner_secret?.trim() &&
-    !!config.fido_private_key?.trim();
+    !!config.fido_partner_secret?.trim();
 
   const handleSubscribe = async () => {
     setRedirecting(true);
@@ -127,7 +125,7 @@ function CredentialsStep() {
           <ClipboardPaste size={11} className="text-outline" />
         </div>
         <p className="text-[10px] text-outline leading-snug -mt-1">
-          Après paiement, cliquez "Révéler (une seule fois)" sur votre page FidoWeb et copiez les quatre valeurs ci-dessous.
+          Après paiement, cliquez "Révéler (une seule fois)" sur votre page FidoWeb et copiez les trois valeurs ci-dessous.
         </p>
 
         <ConfigField label="Merchant ID">
@@ -171,21 +169,6 @@ function CredentialsStep() {
           </div>
         </ConfigField>
 
-        <ConfigField label="Clé privée (private_key)">
-          <div className="relative">
-            <textarea
-              rows={showPrivKey ? 5 : 1}
-              value={config.fido_private_key ?? ""}
-              onChange={(e) => updateConfig({ fido_private_key: e.target.value || null })}
-              placeholder="-----BEGIN PRIVATE KEY-----"
-              className="w-full bg-surface-container-high rounded-xl px-3 py-2.5 text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all font-mono resize-none pr-9"
-            />
-            <button onClick={() => setShowPrivKey(v => !v)} className="absolute right-2.5 top-2.5 text-outline hover:text-on-surface transition-colors">
-              {showPrivKey ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-          <p className="text-[10px] text-outline mt-1">Ed25519 PKCS#8 PEM — affiché une seule fois sur FidoWeb.</p>
-        </ConfigField>
       </div>
 
       {/* Advanced */}
@@ -234,9 +217,9 @@ function CredentialsStep() {
             ? <><Loader2 size={14} className="animate-spin" /> Vérification…</>
             : <><Link2 size={14} /> Vérifier la connexion</>}
         </button>
-        {(config.fido_mid || config.fido_partner_id || config.fido_partner_secret || config.fido_private_key) && (
+        {(config.fido_mid || config.fido_partner_id || config.fido_partner_secret) && (
           <button
-            onClick={() => updateConfig({ fido_mid: null, fido_partner_id: null, fido_partner_secret: null, fido_private_key: null })}
+            onClick={() => updateConfig({ fido_mid: null, fido_partner_id: null, fido_partner_secret: null })}
             title="Effacer les identifiants"
             className="h-10 px-3 rounded-xl border border-outline-variant/20 text-outline hover:text-error hover:border-error/30 transition-all"
           >

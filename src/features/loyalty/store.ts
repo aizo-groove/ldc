@@ -33,7 +33,6 @@ const EMPTY_CONFIG: LoyaltyConfig = {
   fido_mid:            null,
   fido_partner_id:     null,
   fido_partner_secret: null,
-  fido_private_key:    null,
   fido_api_url:        null,
   fido_enabled:        false,
 };

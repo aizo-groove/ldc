@@ -17,10 +17,9 @@ const FIDO_API_URL: &str = match option_env!("FIDO_API_URL") {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LoyaltyConfig {
-    pub fido_mid:            Option<String>,  // partner_id from FidoWeb — merchant identifier
-    pub fido_partner_id:     Option<String>,  // legacy QR frame header (advanced)
-    pub fido_partner_secret: Option<String>,  // shared secret for API auth
-    pub fido_private_key:    Option<String>,  // Ed25519 PKCS#8 PEM — signs QR payloads
+    pub fido_mid:            Option<String>,  // UUID merchants.id — identifiant marchand
+    pub fido_partner_id:     Option<String>,  // credential de provisioning — 32 hex chars → 16 bytes QR header
+    pub fido_partner_secret: Option<String>,  // clé AES-GCM (hex) pour chiffrer le payload QR
     pub fido_api_url:        Option<String>,
     pub fido_enabled:        bool,
 }
@@ -203,7 +202,6 @@ pub async fn get_loyalty_config(state: State<'_, AppState>) -> Result<LoyaltyCon
         fido_mid:            kv_get(pool, "fido_mid").await,
         fido_partner_id:     kv_get(pool, "fido_partner_id").await,
         fido_partner_secret: kv_get(pool, "fido_partner_secret").await,
-        fido_private_key:    kv_get(pool, "fido_private_key").await,
         fido_api_url:        kv_get(pool, "fido_api_url").await,
         fido_enabled:        kv_get(pool, "fido_enabled").await
                                .map(|v| v == "true")
@@ -220,7 +218,6 @@ pub async fn save_loyalty_config(
     kv_set(pool, "fido_mid",            config.fido_mid.as_deref().unwrap_or("")).await?;
     kv_set(pool, "fido_partner_id",     config.fido_partner_id.as_deref().unwrap_or("")).await?;
     kv_set(pool, "fido_partner_secret", config.fido_partner_secret.as_deref().unwrap_or("")).await?;
-    kv_set(pool, "fido_private_key",    config.fido_private_key.as_deref().unwrap_or("")).await?;
     kv_set(pool, "fido_api_url",        config.fido_api_url.as_deref().unwrap_or("")).await?;
     kv_set(pool, "fido_enabled",        if config.fido_enabled { "true" } else { "false" }).await?;
     Ok(())
@@ -298,7 +295,6 @@ pub async fn save_loyalty_program(
         fido_mid:            kv_get(pool, "fido_mid").await,
         fido_partner_id:     kv_get(pool, "fido_partner_id").await,
         fido_partner_secret: kv_get(pool, "fido_partner_secret").await,
-        fido_private_key:    kv_get(pool, "fido_private_key").await,
         fido_api_url:        kv_get(pool, "fido_api_url").await,
         fido_enabled:        kv_get(pool, "fido_enabled").await.map(|v| v == "true").unwrap_or(false),
     };

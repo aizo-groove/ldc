@@ -2,9 +2,8 @@ export type LoyaltyProgramType = "points" | "stamps" | "cashback" | "tiers" | "v
 
 export interface LoyaltyConfig {
   fido_mid:            string | null;  // UUID merchants.id — identifiant marchand
-  fido_partner_id:     string | null;  // credential de provisioning Fido — 32 hex chars (16 bytes) — QR frame header
-  fido_partner_secret: string | null;  // shared secret for API auth
-  fido_private_key:    string | null;  // Ed25519 PKCS#8 PEM — signs QR payloads
+  fido_partner_id:     string | null;  // credential de provisioning — 32 hex chars → 16 bytes QR header
+  fido_partner_secret: string | null;  // clé AES-GCM (hex) pour chiffrer le payload QR
   fido_api_url:        string | null;
   fido_enabled:        boolean;
 }
