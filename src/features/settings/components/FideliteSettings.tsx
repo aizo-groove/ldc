@@ -55,9 +55,10 @@ function NumberInput({
 function CredentialsStep() {
   const { config, connectionStatus, connectionError, saving, updateConfig, persistConfig, testConnection } =
     useLoyaltyStore();
-  const [showSecret,  setShowSecret]  = useState(false);
-  const [showPrivKey, setShowPrivKey] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [showSecret,    setShowSecret]    = useState(false);
+  const [showPartnerId, setShowPartnerId] = useState(false);
+  const [showPrivKey,   setShowPrivKey]   = useState(false);
+  const [redirecting,   setRedirecting]   = useState(false);
 
   if (!config) return null;
 
@@ -67,6 +68,7 @@ function CredentialsStep() {
 
   const hasCredentials =
     !!config.fido_mid?.trim() &&
+    !!config.fido_partner_id?.trim() &&
     !!config.fido_partner_secret?.trim() &&
     !!config.fido_private_key?.trim();
 
@@ -125,7 +127,7 @@ function CredentialsStep() {
           <ClipboardPaste size={11} className="text-outline" />
         </div>
         <p className="text-[10px] text-outline leading-snug -mt-1">
-          Après paiement, cliquez "Révéler (une seule fois)" sur votre page FidoWeb et copiez les trois valeurs ci-dessous.
+          Après paiement, cliquez "Révéler (une seule fois)" sur votre page FidoWeb et copiez les quatre valeurs ci-dessous.
         </p>
 
         <ConfigField label="Merchant ID">
@@ -135,7 +137,23 @@ function CredentialsStep() {
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             className="w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all font-mono"
           />
-          <p className="text-[10px] text-outline mt-1">UUID de votre marchand Fido (merchants.id) — pas le partner_id.</p>
+          <p className="text-[10px] text-outline mt-1">UUID de votre marchand Fido (merchants.id).</p>
+        </ConfigField>
+
+        <ConfigField label="Partner ID">
+          <div className="relative">
+            <input
+              type={showPartnerId ? "text" : "password"}
+              value={config.fido_partner_id ?? ""}
+              onChange={(e) => updateConfig({ fido_partner_id: e.target.value || null })}
+              placeholder="32 caractères hex"
+              className="w-full h-10 bg-surface-container-high rounded-xl px-3 pr-9 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 transition-all font-mono"
+            />
+            <button onClick={() => setShowPartnerId(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors">
+              {showPartnerId ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          <p className="text-[10px] text-outline mt-1">Credential de provisioning — 32 hex chars (16 bytes). En-tête du QR Fido.</p>
         </ConfigField>
 
         <ConfigField label="Partner Secret">
@@ -216,9 +234,9 @@ function CredentialsStep() {
             ? <><Loader2 size={14} className="animate-spin" /> Vérification…</>
             : <><Link2 size={14} /> Vérifier la connexion</>}
         </button>
-        {(config.fido_mid || config.fido_partner_secret || config.fido_private_key) && (
+        {(config.fido_mid || config.fido_partner_id || config.fido_partner_secret || config.fido_private_key) && (
           <button
-            onClick={() => updateConfig({ fido_mid: null, fido_partner_secret: null, fido_private_key: null })}
+            onClick={() => updateConfig({ fido_mid: null, fido_partner_id: null, fido_partner_secret: null, fido_private_key: null })}
             title="Effacer les identifiants"
             className="h-10 px-3 rounded-xl border border-outline-variant/20 text-outline hover:text-error hover:border-error/30 transition-all"
           >
