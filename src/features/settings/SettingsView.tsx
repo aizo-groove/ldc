@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText, Map, Sliders } from "lucide-react";
+import { UtensilsCrossed, Coffee, ShoppingBasket, Check, Loader2, MessageSquarePlus, Heart, ShieldCheck, Download, Database, FolderOpen, Printer, Wallet, Barcode, CreditCard, MonitorSmartphone, FileText, Map, Sliders, Trash2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "./store";
 import { useNavStore } from "@/components/layout/navStore";
 import type { BusinessProfile, FeatureFlags } from "@/types/settings";
 import { FLAG_META } from "@/types/settings";
-import { getSetting, updateSetting, openCashDrawer, verifyChain, exportArchive, getDbPath, listPrinters } from "@/lib/tauri";
+import { getSetting, updateSetting, openCashDrawer, verifyChain, exportArchive, getDbPath, listPrinters, wipeAllData } from "@/lib/tauri";
 import { openCustomerDisplayWindow, closeCustomerDisplayWindow } from "@/features/customer-display/window";
 import { useFeedbackStore } from "@/features/feedback/store";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -1033,6 +1033,27 @@ export function SettingsView() {
   const showFeedback = useFeedbackStore((s) => s.show);
   const setPending = useTutorialStore((s) => s.setPending);
 
+  // Wipe flow
+  const [wipeStep,    setWipeStep]    = useState<"idle" | "pin" | "confirm" | "wiping">("idle");
+  const [wipePin,     setWipePin]     = useState("");
+  const [wipeError,   setWipeError]   = useState<string | null>(null);
+
+  const handleWipePin = async () => {
+    setWipeError(null);
+    setWipeStep("confirm");
+  };
+  const handleWipeConfirm = async () => {
+    setWipeStep("wiping");
+    try {
+      await wipeAllData(wipePin);
+      window.location.reload();
+    } catch (e) {
+      setWipeError(String(e));
+      setWipeStep("pin");
+    }
+  };
+  const resetWipe = () => { setWipeStep("idle"); setWipePin(""); setWipeError(null); };
+
   const pendingTab    = useNavStore((s) => s.settingsTab);
   const setSettingsTab = useNavStore((s) => s.setSettingsTab);
   useEffect(() => {
@@ -1188,6 +1209,89 @@ export function SettingsView() {
                   <MessageSquarePlus size={15} />
                   Envoyer un retour
                 </button>
+              </section>
+
+              <section className="border-t border-outline-variant/20 pt-6">
+                <h2 className="text-[11px] font-black text-error uppercase tracking-widest mb-2">Zone de danger</h2>
+                <p className="text-sm text-outline mb-4">
+                  Réinitialise complètement toutes les données locales. Utile en cas de changement de propriétaire.
+                  Cette action est <strong className="text-on-surface">irréversible</strong>.
+                </p>
+
+                {wipeStep === "idle" && (
+                  <button
+                    onClick={() => setWipeStep("pin")}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-error/40 text-error text-xs font-black uppercase tracking-widest hover:bg-error/10 active:scale-95 transition-all"
+                  >
+                    <Trash2 size={15} />
+                    Effacer toutes les données
+                  </button>
+                )}
+
+                {(wipeStep === "pin" || wipeStep === "confirm") && (
+                  <div className="space-y-3 max-w-xs">
+                    {wipeStep === "pin" && (
+                      <>
+                        <p className="text-xs text-outline">Entrez le PIN responsable pour continuer.</p>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={8}
+                          value={wipePin}
+                          onChange={(e) => setWipePin(e.target.value.replace(/\D/g, ""))}
+                          placeholder="PIN responsable"
+                          className="w-full h-10 bg-surface-container-high rounded-xl px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-error/30 transition-all font-mono tracking-widest"
+                          autoFocus
+                        />
+                        {wipeError && (
+                          <p className="text-xs text-error flex items-center gap-1">
+                            <AlertTriangle size={12} /> {wipeError}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleWipePin}
+                            disabled={!wipePin}
+                            className="flex-1 h-9 rounded-xl bg-error text-on-error text-xs font-black uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all"
+                          >
+                            Continuer
+                          </button>
+                          <button onClick={resetWipe} className="h-9 px-4 rounded-xl border border-outline-variant/20 text-outline text-xs hover:text-on-surface transition-colors">
+                            Annuler
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {wipeStep === "confirm" && (
+                      <>
+                        <div className="flex items-start gap-2 p-3 rounded-xl bg-error/10 border border-error/20">
+                          <AlertTriangle size={14} className="text-error shrink-0 mt-0.5" />
+                          <p className="text-xs text-error leading-snug">
+                            Toutes les ventes, sessions, caissiers et paramètres seront supprimés définitivement. Impossible d'annuler.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleWipeConfirm}
+                            className="flex-1 h-9 rounded-xl bg-error text-on-error text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                          >
+                            Oui, tout effacer
+                          </button>
+                          <button onClick={resetWipe} className="h-9 px-4 rounded-xl border border-outline-variant/20 text-outline text-xs hover:text-on-surface transition-colors">
+                            Annuler
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {wipeStep === "wiping" && (
+                  <div className="flex items-center gap-2 text-sm text-outline">
+                    <Loader2 size={16} className="animate-spin" /> Réinitialisation en cours…
+                  </div>
+                )}
               </section>
             </>
           )}

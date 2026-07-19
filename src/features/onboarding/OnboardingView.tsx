@@ -63,8 +63,6 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
   const [storeName, setStoreName] = useState("");
   const [siret, setSiret]         = useState("");
   const [siretTouched, setSiretTouched] = useState(false);
-  const [printerIp, setPrinterIp] = useState("");
-  const [printerPort, setPrinterPort] = useState("9100");
   const [saving, setSaving]       = useState(false);
   const [wantTour, setWantTour]   = useState(true);
 
@@ -79,12 +77,8 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
         updateSetting("store_name",     storeName.trim()),
         updateSetting("onboarding_done", "true"),
       ];
-      if (profile)          saves.push(updateSetting("business_profile", profile));
-      if (siret.trim())     saves.push(updateSetting("store_siret",      siret.trim()));
-      if (printerIp.trim()) {
-        saves.push(updateSetting("printer_ip",   printerIp.trim()));
-        saves.push(updateSetting("printer_port", printerPort || "9100"));
-      }
+      if (profile)      saves.push(updateSetting("business_profile", profile));
+      if (siret.trim()) saves.push(updateSetting("store_siret",      siret.trim()));
       await Promise.all(saves);
       if (wantTour) setPending(true);
       onDone();
@@ -247,53 +241,27 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
           <div className="w-14 h-14 rounded-2xl bg-surface-container-high flex items-center justify-center">
             <Printer size={24} className="text-outline" />
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tight">Imprimante à tickets</h2>
-          <p className="text-outline text-sm">Imprimante thermique en réseau (TCP/IP)</p>
-        </div>
-
-        <div className="w-full max-w-sm space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-[10px] text-outline uppercase tracking-widest block mb-2">Adresse IP</label>
-              <input
-                autoFocus
-                value={printerIp}
-                onChange={(e) => setPrinterIp(e.target.value)}
-                placeholder="192.168.1.100"
-                className="w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/40 text-on-surface placeholder:text-outline/50"
-              />
-            </div>
-            <div className="w-24">
-              <label className="text-[10px] text-outline uppercase tracking-widest block mb-2">Port</label>
-              <input
-                value={printerPort}
-                onChange={(e) => setPrinterPort(e.target.value)}
-                placeholder="9100"
-                className="w-full bg-surface-container-high rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/40 text-on-surface"
-              />
-            </div>
-          </div>
-
-          <p className="text-xs text-outline">
-            Vous pourrez tester la connexion depuis les Paramètres.
+          <h2 className="text-2xl font-black uppercase tracking-tight">Imprimantes</h2>
+          <p className="text-outline text-sm max-w-xs">
+            Configurez vos imprimantes (tickets, cuisine) depuis les Paramètres après la première connexion.
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-5">
-          <button
-            onClick={next}
-            disabled={!printerIp.trim()}
-            className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"
-          >
-            Continuer <ChevronRight size={16} />
-          </button>
-          <button
-            onClick={next}
-            className="text-[11px] text-outline/60 hover:text-outline transition-colors underline underline-offset-2"
-          >
-            Passer cette étape
-          </button>
+        <div className="w-full max-w-sm bg-surface-container-low rounded-2xl p-5 space-y-3 text-sm text-on-surface-variant leading-relaxed">
+          <p>
+            LDC supporte les <strong className="text-on-surface">imprimantes thermiques TCP/IP</strong> et les écrans clients.
+          </p>
+          <p>
+            Rendez-vous dans <strong className="text-on-surface">Paramètres → Matériel</strong> pour ajouter et tester vos appareils.
+          </p>
         </div>
+
+        <button
+          onClick={next}
+          className="flex items-center gap-2 px-8 py-4 bg-primary text-on-primary rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all"
+        >
+          Continuer <ChevronRight size={16} />
+        </button>
       </div>
     );
   }
@@ -324,11 +292,7 @@ export function OnboardingView({ onDone }: OnboardingViewProps) {
             value={PROFILES.find((p) => p.id === profile)?.label ?? profile}
           />
         )}
-        <SummaryRow
-          label="Imprimante"
-          value={printerIp.trim() ? `${printerIp}:${printerPort}` : "Non configurée"}
-          muted={!printerIp.trim()}
-        />
+        <SummaryRow label="Imprimante" value="À configurer dans Paramètres → Matériel" muted />
       </div>
 
       <div className="flex flex-col items-center gap-3">

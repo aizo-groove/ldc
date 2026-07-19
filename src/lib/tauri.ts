@@ -265,6 +265,11 @@ export const validateRctLocal = (rctRaw: string): Promise<RctInfo> =>
 export const consumeRctLocal = (rctInfo: RctInfo): Promise<void> =>
   invoke("consume_rct_local", { rctInfo });
 
+// ── Admin ──────────────────────────────────────────────────
+
+export const wipeAllData = (managerPin: string): Promise<void> =>
+  invoke("wipe_all_data", { managerPin });
+
 // ── Dev tools (debug builds only) ─────────────────────────
 
 export const devResetOnboarding = (): Promise<void> =>

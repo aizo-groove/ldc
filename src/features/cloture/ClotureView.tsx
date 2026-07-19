@@ -249,13 +249,21 @@ export function ClotureView({ onDone }: ClotureViewProps) {
               {" "}&mdash; {rapport.nb_transactions} transaction{rapport.nb_transactions > 1 ? "s" : ""}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] text-outline uppercase tracking-widest mb-1 select-none">
-              Chiffre d'affaires TTC
-            </p>
-            <p className="text-4xl font-black text-secondary">
-              {formatCents(rapport.net_ttc)}
-            </p>
+          <div className="flex flex-col items-end gap-3">
+            <button
+              onClick={() => usePrintStore.getState().trigger({ type: "rapport", rapport })}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold hover:bg-surface-bright transition-colors"
+            >
+              <Printer size={14} /> Rapport X
+            </button>
+            <div className="text-right">
+              <p className="text-[10px] text-outline uppercase tracking-widest mb-1 select-none">
+                Chiffre d'affaires TTC
+              </p>
+              <p className="text-4xl font-black text-secondary">
+                {formatCents(rapport.net_ttc)}
+              </p>
+            </div>
           </div>
         </div>
 

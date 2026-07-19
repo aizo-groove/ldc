@@ -99,6 +99,7 @@ pub fn run() {
             // Settings
             commands::settings::get_setting,
             commands::settings::update_setting,
+            commands::settings::wipe_all_data,
             // Dev tools (no-op in production)
             commands::dev::dev_reset_onboarding,
             // Tables
