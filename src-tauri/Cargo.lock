@@ -2217,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "ldc"
-version = "0.5.1"
+version = "0.7.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
