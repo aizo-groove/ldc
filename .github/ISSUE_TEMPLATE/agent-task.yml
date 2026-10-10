@@ -1,0 +1,43 @@
+name: Tâche agent
+description: Une tâche découpée pour être réalisée par un agent Claude (une demi-journée max).
+title: "[agent] "
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte
+      description: Pourquoi cette tâche ? Quel parcours utilisateur ou quelle contrainte (NF525, contrat FIDO…) ?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Comportement attendu
+      description: Ce que l'utilisateur (commerçant, client, caissier) voit ou peut faire après.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      description: Vérifiables, idéalement couverts par des tests.
+      value: |
+        - [ ]
+        - [ ] Tests ajoutés/mis à jour
+        - [ ] CI verte
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Fichiers probablement concernés
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Hors périmètre
+      description: Ce que l'agent ne doit PAS faire dans cette PR.
+  - type: input
+    id: depends
+    attributes:
+      label: Dépendances
+      placeholder: "ex. aizo-groove/fidoweb#12"

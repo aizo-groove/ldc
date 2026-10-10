@@ -1,0 +1,43 @@
+# Relecture automatique de chaque PR par l'agent reviewer, avant ta propre revue.
+name: Claude — review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Utilise le sous-agent `reviewer` (.claude/agents/reviewer.md) pour relire cette PR.
+            Lis CLAUDE.md, docs/ECOSYSTEM.md et, si l'intégration est touchée, docs/FIDO_API_CONTRACT.md.
+            Publie un seul commentaire au format défini par le reviewer.
+            Ne modifie aucun fichier et ne pousse aucun commit.
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 25
+            --allowedTools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),mcp__github_inline_comment__create_inline_comment"

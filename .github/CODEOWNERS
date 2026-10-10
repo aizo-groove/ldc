@@ -1,0 +1,10 @@
+# Revue humaine obligatoire (avec « Require review from Code Owners » activé sur main)
+*                                   @aizo-groove
+/src-tauri/src/nf525/               @aizo-groove
+/src-tauri/src/db/migrations/       @aizo-groove
+/src-tauri/src/commands/compliance* @aizo-groove
+/src-tauri/capabilities/            @aizo-groove
+/src-tauri/tauri.conf.json          @aizo-groove
+/.github/                           @aizo-groove
+/.claude/                           @aizo-groove
+/docs/FIDO_API_CONTRACT.md          @aizo-groove
