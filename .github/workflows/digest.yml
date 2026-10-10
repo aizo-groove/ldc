@@ -1,0 +1,84 @@
+# Digest quotidien : à placer dans ldc/.github/workflows/digest.yml
+# Ouvre chaque matin une issue « Digest du jour » dans ldc (tu reçois la notif GitHub/e-mail)
+# et ferme celle de la veille.
+name: Digest du jour
+
+on:
+  schedule:
+    - cron: "27 5 * * 1-5"   # 07:27 heure de Paris l'été, 06:27 l'hiver (cron GitHub = UTC)
+  workflow_dispatch:
+
+env:
+  # Adapte les noms si tes dépôts s'appellent autrement
+  REPOS: "aizo-groove/ldc aizo-groove/fido aizo-groove/fidoWeb aizo-groove/ldcWeb"
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collecter l'état des 4 dépôts
+        env:
+          GH_TOKEN: ${{ secrets.DIGEST_GH_TOKEN }}
+        run: |
+          mkdir -p digest-data
+          SINCE=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+          for r in $REPOS; do
+            n=$(echo "$r" | tr '/' '_')
+            gh pr list -R "$r" --state open --limit 50 \
+              --json number,title,isDraft,createdAt,author,labels,reviewDecision,statusCheckRollup,additions,deletions,url \
+              > "digest-data/${n}_open_prs.json"
+            gh pr list -R "$r" --state merged --search "merged:>=$SINCE" --limit 50 \
+              --json number,title,mergedAt,url > "digest-data/${n}_merged.json"
+            gh issue list -R "$r" --state open --limit 100 \
+              --json number,title,labels,updatedAt,url > "digest-data/${n}_issues.json"
+            gh run list -R "$r" --status failure --created ">=$SINCE" --limit 20 \
+              --json name,headBranch,url,createdAt > "digest-data/${n}_failed_runs.json" || echo "[]" > "digest-data/${n}_failed_runs.json"
+          done
+          ls -la digest-data
+
+      - name: Rédiger le digest
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Les fichiers JSON de ./digest-data décrivent l'état des 4 dépôts de l'écosystème LDC × FIDO
+            (lis docs/ECOSYSTEM.md pour le contexte). Écris ./digest.md, en français, pour un mainteneur
+            qui a 60 minutes aujourd'hui. Structure exacte :
+
+            ## 🟢 À relire aujourd'hui (par ordre de priorité)
+            Liste des PR non brouillon avec CI verte. Pour chacune : lien, dépôt, taille (+/-),
+            ⚠️ si elle touche NF525 / contrat FIDO / paiement (labels area:*). Estime le temps de revue ;
+            arrête la liste quand le total dépasse 40 minutes et indique combien restent.
+            ## 🧭 Décisions qui t'attendent
+            Issues avec le label needs:human ou agent:blocked : lien + la question en une ligne.
+            ## 🔴 Ce qui casse
+            PR à CI rouge, runs échoués, PR ouvertes depuis plus de 5 jours.
+            ## ✅ Livré depuis hier
+            PR mergées.
+            ## 💡 Suggestion du jour
+            Une seule recommandation pour faire avancer le parcours « LDC gratuit → abonnement FIDO ».
+
+            Sois bref. N'écris aucun autre fichier.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 15
+            --allowedTools "Read,Glob,Write"
+
+      - name: Publier l'issue et fermer celle de la veille
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label digest --state open --json number -q '.[].number'); do
+            gh issue close "$n" --reason completed
+          done
+          gh label create digest --color BFD4F2 --force
+          gh issue create --title "Digest du $(TZ=Europe/Paris date +%d/%m/%Y)" \
+            --label digest --assignee "${{ github.repository_owner }}" --body-file digest.md
