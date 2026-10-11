@@ -9,13 +9,11 @@ pub async fn get_table_order(
 ) -> Result<Option<OpenOrderFull>, String> {
     let pool = state.db.as_ref();
 
-    let order = sqlx::query_as::<_, OpenOrder>(
-        "SELECT * FROM open_orders WHERE table_id = ?",
-    )
-    .bind(&table_id)
-    .fetch_optional(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let order = sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders WHERE table_id = ?")
+        .bind(&table_id)
+        .fetch_optional(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let Some(order) = order else { return Ok(None) };
 
@@ -31,9 +29,7 @@ pub async fn get_table_order(
 }
 
 #[tauri::command]
-pub async fn list_open_orders(
-    state: State<'_, AppState>,
-) -> Result<Vec<OpenOrder>, String> {
+pub async fn list_open_orders(state: State<'_, AppState>) -> Result<Vec<OpenOrder>, String> {
     let pool = state.db.as_ref();
     sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders")
         .fetch_all(&*pool)
@@ -58,26 +54,27 @@ pub async fn save_table_order(
     // Validate session_id: use None if session doesn't exist to avoid FK violation.
     let session_id: Option<String> = match session_id {
         Some(ref sid) => {
-            let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)"
-            )
-            .bind(sid)
-            .fetch_one(&*pool)
-            .await
-            .unwrap_or(false);
-            if exists { session_id } else { None }
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)")
+                    .bind(sid)
+                    .fetch_one(&*pool)
+                    .await
+                    .unwrap_or(false);
+            if exists {
+                session_id
+            } else {
+                None
+            }
         }
         None => None,
     };
 
     // Upsert the open_order row
-    let order_id = sqlx::query_scalar::<_, String>(
-        "SELECT id FROM open_orders WHERE table_id = ?",
-    )
-    .bind(&table_id)
-    .fetch_optional(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let order_id = sqlx::query_scalar::<_, String>("SELECT id FROM open_orders WHERE table_id = ?")
+        .bind(&table_id)
+        .fetch_optional(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let order_id = if let Some(id) = order_id {
         sqlx::query(
@@ -156,7 +153,10 @@ pub async fn save_table_order(
     .await
     .map_err(|e| e.to_string())?;
 
-    Ok(OpenOrderFull { order, lines: saved_lines })
+    Ok(OpenOrderFull {
+        order,
+        lines: saved_lines,
+    })
 }
 
 #[tauri::command]

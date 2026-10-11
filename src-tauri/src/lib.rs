@@ -28,9 +28,7 @@ pub fn run() {
                 let pool = db::init(&handle)
                     .await
                     .expect("Impossible d'initialiser la base de données");
-                handle.manage(AppState {
-                    db: Arc::new(pool),
-                });
+                handle.manage(AppState { db: Arc::new(pool) });
             });
             Ok(())
         })

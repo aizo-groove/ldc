@@ -1,12 +1,15 @@
 /// ESC/POS byte builder compatible avec les imprimantes thermiques Epson, Star, etc.
 /// Code page PC858 (Latin-1 + €). Largeur 48 cols (80 mm) ou 32 cols (58 mm).
-
 use base64::Engine as _;
 
 // ── Helpers ───────────────────────────────────────────────────
 
 pub fn paper_cols(mm: u8) -> usize {
-    if mm >= 80 { 48 } else { 32 }
+    if mm >= 80 {
+        48
+    } else {
+        32
+    }
 }
 
 /// UTF-8 → PC858 (Latin-1 range passthrough, € → 0xD5)
@@ -25,9 +28,13 @@ pub fn fmt_cents(cents: i64) -> String {
     let neg = cents < 0;
     let abs = cents.unsigned_abs();
     let euros = abs / 100;
-    let frac  = abs % 100;
+    let frac = abs % 100;
     let s = format!("{},{:02}", euros, frac);
-    if neg { format!("-{}", s) } else { s }
+    if neg {
+        format!("-{}", s)
+    } else {
+        s
+    }
 }
 
 /// Taux en centièmes de % → "20,00 %"
@@ -38,31 +45,54 @@ pub fn fmt_rate(pct: i64) -> String {
 // ── Builder ───────────────────────────────────────────────────
 
 pub struct EscPos {
-    buf:  Vec<u8>,
+    buf: Vec<u8>,
     cols: usize,
 }
 
 impl EscPos {
     pub fn new(paper_mm: u8) -> Self {
-        let mut e = Self { buf: Vec::new(), cols: paper_cols(paper_mm) };
-        e.raw(&[0x1B, 0x40]);       // ESC @ — init
+        let mut e = Self {
+            buf: Vec::new(),
+            cols: paper_cols(paper_mm),
+        };
+        e.raw(&[0x1B, 0x40]); // ESC @ — init
         e.raw(&[0x1B, 0x74, 0x13]); // ESC t 19 — code page PC858
         e
     }
 
-    fn raw(&mut self, b: &[u8]) { self.buf.extend_from_slice(b); }
+    fn raw(&mut self, b: &[u8]) {
+        self.buf.extend_from_slice(b);
+    }
 
-    pub fn lf(&mut self)  { self.raw(&[0x0A]); }
+    pub fn lf(&mut self) {
+        self.raw(&[0x0A]);
+    }
 
-    pub fn align_left(&mut self)   { self.raw(&[0x1B, 0x61, 0x00]); }
-    pub fn align_center(&mut self) { self.raw(&[0x1B, 0x61, 0x01]); }
-    pub fn align_right(&mut self)  { self.raw(&[0x1B, 0x61, 0x02]); }
+    pub fn align_left(&mut self) {
+        self.raw(&[0x1B, 0x61, 0x00]);
+    }
+    pub fn align_center(&mut self) {
+        self.raw(&[0x1B, 0x61, 0x01]);
+    }
+    pub fn align_right(&mut self) {
+        self.raw(&[0x1B, 0x61, 0x02]);
+    }
 
-    pub fn bold(&mut self, on: bool)   { self.raw(&[0x1B, 0x45, on as u8]); }
-    pub fn double(&mut self, on: bool) { self.raw(&[0x1D, 0x21, if on { 0x11 } else { 0x00 }]); }
+    pub fn bold(&mut self, on: bool) {
+        self.raw(&[0x1B, 0x45, on as u8]);
+    }
+    pub fn double(&mut self, on: bool) {
+        self.raw(&[0x1D, 0x21, if on { 0x11 } else { 0x00 }]);
+    }
 
-    pub fn text(&mut self, s: &str)    { let b = to_pc858(s); self.raw(&b); }
-    pub fn println(&mut self, s: &str) { self.text(s); self.lf(); }
+    pub fn text(&mut self, s: &str) {
+        let b = to_pc858(s);
+        self.raw(&b);
+    }
+    pub fn println(&mut self, s: &str) {
+        self.text(s);
+        self.lf();
+    }
 
     pub fn sep(&mut self, ch: char) {
         let s: String = std::iter::repeat(ch).take(self.cols).collect();
@@ -105,20 +135,24 @@ impl EscPos {
 
     pub fn cut(&mut self) {
         self.raw(&[0x0A, 0x0A, 0x0A, 0x0A]); // 4 line feeds
-        self.raw(&[0x1D, 0x56, 0x42, 0x03]);  // GS V B 3 — partial cut
+        self.raw(&[0x1D, 0x56, 0x42, 0x03]); // GS V B 3 — partial cut
     }
 
-    pub fn build(self) -> Vec<u8> { self.buf }
-    pub fn cols(&self) -> usize   { self.cols }
+    pub fn build(self) -> Vec<u8> {
+        self.buf
+    }
+    pub fn cols(&self) -> usize {
+        self.cols
+    }
 }
 
 // ── Document builders ─────────────────────────────────────────
 
-use crate::commands::print::{ReceiptDoc, RapportDoc, KitchenDoc};
+use crate::commands::print::{KitchenDoc, RapportDoc, ReceiptDoc};
 
 pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     let mut p = EscPos::new(paper_mm);
-    let cols  = p.cols();
+    let cols = p.cols();
 
     // Header
     p.align_center();
@@ -149,11 +183,10 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     let name_width = cols.saturating_sub(18); // qty(4) + price(8) + spaces(6)
     for line in &doc.lines {
         let name = truncate(&line.product_name, name_width);
-        let qty  = format!("{:>2}x", line.quantity);
+        let qty = format!("{:>2}x", line.quantity);
         let price = fmt_cents(line.line_total_ttc);
-        let pad  = cols.saturating_sub(name.chars().count() + qty.len() + 2 + price.len());
-        p.println(&format!("{}  {}{}{}",
-            name, qty, " ".repeat(pad), price));
+        let pad = cols.saturating_sub(name.chars().count() + qty.len() + 2 + price.len());
+        p.println(&format!("{}  {}{}{}", name, qty, " ".repeat(pad), price));
     }
 
     p.sep('-');
@@ -165,7 +198,10 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     p.lr("Sous-total HT", &fmt_cents(doc.total_ht));
     for tg in &doc.tva_groups {
         if tg.tva > 0 {
-            p.lr(&format!("TVA {}", fmt_rate(tg.rate_pct)), &fmt_cents(tg.tva));
+            p.lr(
+                &format!("TVA {}", fmt_rate(tg.rate_pct)),
+                &fmt_cents(tg.tva),
+            );
         }
     }
     p.sep('=');
@@ -184,7 +220,9 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     let method_label = payment_label(&doc.payment_method);
     p.lr(&method_label, &fmt_cents(doc.payment_amount));
     if let Some(change) = doc.cash_change {
-        if change > 0 { p.lr("Rendu monnaie", &fmt_cents(change)); }
+        if change > 0 {
+            p.lr("Rendu monnaie", &fmt_cents(change));
+        }
     }
     p.sep('-');
 
@@ -238,9 +276,12 @@ pub fn build_rapport(doc: &RapportDoc, paper_mm: u8) -> Vec<u8> {
     p.println("ACTIVITE");
     p.bold(false);
     p.lr("Transactions", &doc.nb_transactions.to_string());
-    p.lr("Ventes TTC",   &fmt_cents(doc.total_ventes_ttc));
+    p.lr("Ventes TTC", &fmt_cents(doc.total_ventes_ttc));
     if doc.total_avoirs_ttc > 0 {
-        p.lr("Avoirs TTC", &format!("-{}", fmt_cents(doc.total_avoirs_ttc)));
+        p.lr(
+            "Avoirs TTC",
+            &format!("-{}", fmt_cents(doc.total_avoirs_ttc)),
+        );
     }
     p.sep('-');
     p.bold(true);
@@ -252,15 +293,23 @@ pub fn build_rapport(doc: &RapportDoc, paper_mm: u8) -> Vec<u8> {
     p.bold(true);
     p.println("PAIEMENTS");
     p.bold(false);
-    if doc.pay_cb       > 0 { p.lr("Carte bancaire", &fmt_cents(doc.pay_cb)); }
-    if doc.pay_especes  > 0 { p.lr("Especes",        &fmt_cents(doc.pay_especes)); }
-    if doc.pay_cheque   > 0 { p.lr("Cheques",        &fmt_cents(doc.pay_cheque)); }
-    if doc.pay_autre    > 0 { p.lr("Autre",          &fmt_cents(doc.pay_autre)); }
+    if doc.pay_cb > 0 {
+        p.lr("Carte bancaire", &fmt_cents(doc.pay_cb));
+    }
+    if doc.pay_especes > 0 {
+        p.lr("Especes", &fmt_cents(doc.pay_especes));
+    }
+    if doc.pay_cheque > 0 {
+        p.lr("Cheques", &fmt_cents(doc.pay_cheque));
+    }
+    if doc.pay_autre > 0 {
+        p.lr("Autre", &fmt_cents(doc.pay_autre));
+    }
     p.sep('=');
 
     // TVA
     let tva_rows = [
-        ("TVA 5,50%",  doc.tva_550,  doc.ht_550),
+        ("TVA 5,50%", doc.tva_550, doc.ht_550),
         ("TVA 10,00%", doc.tva_1000, doc.ht_1000),
         ("TVA 20,00%", doc.tva_2000, doc.ht_2000),
     ];
@@ -272,7 +321,7 @@ pub fn build_rapport(doc: &RapportDoc, paper_mm: u8) -> Vec<u8> {
         for (label, tva, ht) in &tva_rows {
             if *tva > 0 {
                 p.lr(&format!("{} BASE HT", label), &fmt_cents(*ht));
-                p.lr(&format!("{}  TVA",    label), &fmt_cents(*tva));
+                p.lr(&format!("{}  TVA", label), &fmt_cents(*tva));
             }
         }
         p.sep('=');
@@ -296,8 +345,11 @@ pub fn build_rapport(doc: &RapportDoc, paper_mm: u8) -> Vec<u8> {
 
 fn truncate(s: &str, max: usize) -> String {
     let chars: Vec<char> = s.chars().collect();
-    if chars.len() <= max { s.to_string() }
-    else { chars[..max.saturating_sub(1)].iter().collect::<String>() + "." }
+    if chars.len() <= max {
+        s.to_string()
+    } else {
+        chars[..max.saturating_sub(1)].iter().collect::<String>() + "."
+    }
 }
 
 fn format_datetime(iso: &str) -> String {
@@ -315,12 +367,12 @@ fn format_datetime(iso: &str) -> String {
 
 fn payment_label(method: &str) -> String {
     match method {
-        "CB"          => "Carte bancaire".to_string(),
-        "ESPECES"     => "Especes".to_string(),
-        "CHEQUE"      => "Cheque".to_string(),
+        "CB" => "Carte bancaire".to_string(),
+        "ESPECES" => "Especes".to_string(),
+        "CHEQUE" => "Cheque".to_string(),
         "TITRE_RESTO" => "Titre Resto".to_string(),
-        "VIREMENT"    => "Virement".to_string(),
-        _             => method.to_string(),
+        "VIREMENT" => "Virement".to_string(),
+        _ => method.to_string(),
     }
 }
 
@@ -333,7 +385,11 @@ pub fn build_kitchen(doc: &KitchenDoc, paper_mm: u8) -> Vec<u8> {
     p.double(true);
     p.println(&doc.table_name);
     p.double(false);
-    let covers_label = if doc.covers == 1 { "1 couvert".to_string() } else { format!("{} couverts", doc.covers) };
+    let covers_label = if doc.covers == 1 {
+        "1 couvert".to_string()
+    } else {
+        format!("{} couverts", doc.covers)
+    };
     p.println(&covers_label);
     if let Some(ref subtitle) = doc.subtitle {
         p.bold(true);

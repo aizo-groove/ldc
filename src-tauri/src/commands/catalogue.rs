@@ -148,19 +148,14 @@ pub async fn update_product(
 #[tauri::command]
 pub async fn list_all_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
     let pool = state.db.as_ref();
-    sqlx::query_as::<_, Product>(
-        "SELECT * FROM products ORDER BY active DESC, sort_order, name",
-    )
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())
+    sqlx::query_as::<_, Product>("SELECT * FROM products ORDER BY active DESC, sort_order, name")
+        .fetch_all(&*pool)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn delete_product(
-    state: State<'_, AppState>,
-    product_id: String,
-) -> Result<(), String> {
+pub async fn delete_product(state: State<'_, AppState>, product_id: String) -> Result<(), String> {
     let pool = state.db.as_ref();
     let now = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")

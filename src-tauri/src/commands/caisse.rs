@@ -34,13 +34,11 @@ pub async fn list_sessions(
     limit: Option<i64>,
 ) -> Result<Vec<Session>, String> {
     let pool = state.db.as_ref();
-    sqlx::query_as::<_, Session>(
-        "SELECT * FROM sessions ORDER BY opened_at DESC LIMIT ?",
-    )
-    .bind(limit.unwrap_or(50))
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())
+    sqlx::query_as::<_, Session>("SELECT * FROM sessions ORDER BY opened_at DESC LIMIT ?")
+        .bind(limit.unwrap_or(50))
+        .fetch_all(&*pool)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

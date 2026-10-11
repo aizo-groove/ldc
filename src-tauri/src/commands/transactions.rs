@@ -33,12 +33,11 @@ pub async fn create_transaction(
     let total_tva = total_ttc - total_ht;
 
     // -- Séquence NF525 --
-    let sequence_no: i64 = sqlx::query_scalar::<_, i64>(
-        "SELECT COALESCE(MAX(sequence_no), 0) + 1 FROM transactions",
-    )
-    .fetch_one(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let sequence_no: i64 =
+        sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(sequence_no), 0) + 1 FROM transactions")
+            .fetch_one(&*pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let previous_hash: Option<String> = sqlx::query_scalar::<_, String>(
         "SELECT hash FROM transactions ORDER BY sequence_no DESC LIMIT 1",
@@ -82,13 +81,12 @@ pub async fn create_transaction(
     if transaction_type == "VENTE" {
         for line in &lines {
             if let Some(ref product_id) = line.product_id {
-                let row: Option<(i64, Option<i64>)> = sqlx::query_as(
-                    "SELECT track_stock, stock_qty FROM products WHERE id = ?",
-                )
-                .bind(product_id)
-                .fetch_optional(&*pool)
-                .await
-                .map_err(|e| e.to_string())?;
+                let row: Option<(i64, Option<i64>)> =
+                    sqlx::query_as("SELECT track_stock, stock_qty FROM products WHERE id = ?")
+                        .bind(product_id)
+                        .fetch_optional(&*pool)
+                        .await
+                        .map_err(|e| e.to_string())?;
 
                 if let Some((1, stock)) = row {
                     let available = stock.unwrap_or(0);
@@ -116,14 +114,17 @@ pub async fn create_transaction(
         // product_name/sku are snapshotted so NF525 traceability is preserved.
         let product_id: Option<String> = match &line.product_id {
             Some(pid) => {
-                let exists: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)"
-                )
-                .bind(pid)
-                .fetch_one(&*pool)
-                .await
-                .unwrap_or(false);
-                if exists { Some(pid.clone()) } else { None }
+                let exists: bool =
+                    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)")
+                        .bind(pid)
+                        .fetch_one(&*pool)
+                        .await
+                        .unwrap_or(false);
+                if exists {
+                    Some(pid.clone())
+                } else {
+                    None
+                }
             }
             None => None,
         };
@@ -174,7 +175,11 @@ pub async fn create_transaction(
     // -- Mise à jour du stock (produits avec track_stock = 1) --
     for line in &lines {
         if let Some(ref product_id) = line.product_id {
-            let delta = if transaction_type == "AVOIR" { line.quantity } else { -line.quantity };
+            let delta = if transaction_type == "AVOIR" {
+                line.quantity
+            } else {
+                -line.quantity
+            };
             sqlx::query(
                 "UPDATE products SET stock_qty = stock_qty + ?, updated_at = ? WHERE id = ? AND track_stock = 1",
             )
@@ -259,12 +264,11 @@ pub async fn get_transaction(
 ) -> Result<TransactionFull, String> {
     let pool = state.db.as_ref();
 
-    let transaction =
-        sqlx::query_as::<_, Transaction>("SELECT * FROM transactions WHERE id = ?")
-            .bind(&transaction_id)
-            .fetch_one(&*pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let transaction = sqlx::query_as::<_, Transaction>("SELECT * FROM transactions WHERE id = ?")
+        .bind(&transaction_id)
+        .fetch_one(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let lines = sqlx::query_as::<_, TransactionLine>(
         "SELECT * FROM transaction_lines WHERE transaction_id = ? ORDER BY line_no",
@@ -274,13 +278,11 @@ pub async fn get_transaction(
     .await
     .map_err(|e| e.to_string())?;
 
-    let payments = sqlx::query_as::<_, Payment>(
-        "SELECT * FROM payments WHERE transaction_id = ?",
-    )
-    .bind(&transaction_id)
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let payments = sqlx::query_as::<_, Payment>("SELECT * FROM payments WHERE transaction_id = ?")
+        .bind(&transaction_id)
+        .fetch_all(&*pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(TransactionFull {
         transaction,
@@ -296,13 +298,11 @@ pub async fn list_recent_transactions(
     limit: i64,
 ) -> Result<Vec<Transaction>, String> {
     let pool = state.db.as_ref();
-    sqlx::query_as::<_, Transaction>(
-        "SELECT * FROM transactions ORDER BY sequence_no DESC LIMIT ?",
-    )
-    .bind(limit)
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())
+    sqlx::query_as::<_, Transaction>("SELECT * FROM transactions ORDER BY sequence_no DESC LIMIT ?")
+        .bind(limit)
+        .fetch_all(&*pool)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -345,7 +345,16 @@ pub async fn verify_chain(state: State<'_, AppState>) -> Result<usize, String> {
 
     let chain: Vec<(i64, String, i64, String, Option<String>, String)> = rows
         .into_iter()
-        .map(|r| (r.sequence_no, r.r#type, r.total_ttc, r.created_at, r.previous_hash, r.hash))
+        .map(|r| {
+            (
+                r.sequence_no,
+                r.r#type,
+                r.total_ttc,
+                r.created_at,
+                r.previous_hash,
+                r.hash,
+            )
+        })
         .collect();
 
     crate::nf525::chain::verify_chain(&chain)

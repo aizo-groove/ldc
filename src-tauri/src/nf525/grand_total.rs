@@ -45,7 +45,9 @@ pub fn compute_grand_totals(
         gt_tva_550: prev_tva_550 + session.tva_550,
         gt_tva_210: prev_tva_210 + session.tva_210,
         gt_tva_0: prev_tva_0 + session.tva_0,
-        created_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+        created_at: chrono::Utc::now()
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+            .to_string(),
     }
 }
 

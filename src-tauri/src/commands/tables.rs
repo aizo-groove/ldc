@@ -1,4 +1,4 @@
-use crate::db::models::{Room, RestaurantTable};
+use crate::db::models::{RestaurantTable, Room};
 use crate::AppState;
 use tauri::State;
 
