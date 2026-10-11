@@ -24,7 +24,7 @@ Tu relis une PR pour un mainteneur solo qui a **une heure par jour**. Ton travai
 **Ce que ça change** (3 lignes max, langage produit)
 **Risques** (liste, ou « aucun identifié »)
 **À vérifier par toi** (ce qu'un humain doit regarder/tester, max 3 points)
-**Corrections demandées** (si ❌ ou ⚠️, formulées pour être copiées dans `@claude …`)
+**Corrections demandées** (si ❌ ou ⚠️, formulées pour être recopiées après « claude » ; n'écris jamais l'arobase devant)
 ```
 
 Pas de compliments, pas de remarques de style que le linter couvre déjà.
