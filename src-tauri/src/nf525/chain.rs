@@ -35,6 +35,8 @@ pub fn hash_transaction(
 ///   sequence_no | net_ttc_centimes | created_at_iso8601 | previous_hash
 ///
 /// `previous_hash` est `"GENESIS"` pour la toute première clôture.
+// Non utilisé à ce jour ; conservé (code NF525 — modification réservée au label area:nf525).
+#[allow(dead_code)]
 pub fn hash_cloture(
     sequence_no: i64,
     net_ttc: i64,
@@ -50,6 +52,7 @@ pub fn hash_cloture(
 
 /// Relit toute la chaîne de transactions depuis la DB et vérifie son intégrité.
 /// Retourne `Ok(count)` si tout est valide, `Err(sequence_no)` sur le premier maillon brisé.
+#[allow(clippy::type_complexity)]
 pub fn verify_chain(
     transactions: &[(i64, String, i64, String, Option<String>, String)],
     // (sequence_no, type, total_ttc, created_at, previous_hash, stored_hash)
@@ -102,9 +105,30 @@ mod tests {
         let h3 = hash_transaction(3, "AVOIR", 500, "2025-01-01T10:10:00.000Z", &h2);
 
         let chain = vec![
-            (1i64, "VENTE".to_string(), 1000i64, "2025-01-01T10:00:00.000Z".to_string(), None, h1.clone()),
-            (2i64, "VENTE".to_string(), 2000i64, "2025-01-01T10:05:00.000Z".to_string(), Some(h1.clone()), h2.clone()),
-            (3i64, "AVOIR".to_string(), 500i64, "2025-01-01T10:10:00.000Z".to_string(), Some(h2.clone()), h3.clone()),
+            (
+                1i64,
+                "VENTE".to_string(),
+                1000i64,
+                "2025-01-01T10:00:00.000Z".to_string(),
+                None,
+                h1.clone(),
+            ),
+            (
+                2i64,
+                "VENTE".to_string(),
+                2000i64,
+                "2025-01-01T10:05:00.000Z".to_string(),
+                Some(h1.clone()),
+                h2.clone(),
+            ),
+            (
+                3i64,
+                "AVOIR".to_string(),
+                500i64,
+                "2025-01-01T10:10:00.000Z".to_string(),
+                Some(h2.clone()),
+                h3.clone(),
+            ),
         ];
 
         assert_eq!(verify_chain(&chain), Ok(3));

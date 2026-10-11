@@ -17,7 +17,11 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<DbPool> {
 
     std::fs::create_dir_all(&data_dir)?;
 
-    let db_name = if cfg!(debug_assertions) { "ldc-dev.db" } else { "ldc.db" };
+    let db_name = if cfg!(debug_assertions) {
+        "ldc-dev.db"
+    } else {
+        "ldc.db"
+    };
     let db_path = data_dir.join(db_name);
     let db_url = format!("sqlite://{}?mode=rwc", db_path.display());
 

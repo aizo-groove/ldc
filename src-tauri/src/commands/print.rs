@@ -1,4 +1,4 @@
-use crate::printer::escpos::{build_receipt, build_rapport, build_kitchen};
+use crate::printer::escpos::{build_kitchen, build_rapport, build_receipt};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -9,73 +9,79 @@ use tokio::net::TcpStream;
 
 #[derive(Debug, Deserialize)]
 pub struct ReceiptLine {
-    pub product_name:   String,
-    pub quantity:       i64,
+    pub product_name: String,
+    pub quantity: i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
     pub unit_price_ttc: i64,
     pub line_total_ttc: i64,
-    pub tva_rate_pct:   i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
+    pub tva_rate_pct: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ReceiptTvaGroup {
     pub rate_pct: i64,
-    pub tva:      i64,
-    pub ht:       i64,
+    pub tva: i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
+    pub ht: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ReceiptDoc {
-    pub store_name:       String,
-    pub sequence_no:      i64,
-    pub created_at:       String,
-    pub cashier_name:     Option<String>,
-    pub lines:            Vec<ReceiptLine>,
-    pub total_ht:         i64,
-    pub total_ttc:        i64,
-    pub discount_ttc:     i64,
-    pub payment_method:   String,
-    pub payment_amount:   i64,
-    pub cash_change:      Option<i64>,
-    pub tva_groups:       Vec<ReceiptTvaGroup>,
-    pub hash:             String,
-    pub is_avoir:         bool,
-    pub loyalty_qr:       Option<String>, // base64url-encoded binary QR payload
+    pub store_name: String,
+    pub sequence_no: i64,
+    pub created_at: String,
+    pub cashier_name: Option<String>,
+    pub lines: Vec<ReceiptLine>,
+    pub total_ht: i64,
+    pub total_ttc: i64,
+    pub discount_ttc: i64,
+    pub payment_method: String,
+    pub payment_amount: i64,
+    pub cash_change: Option<i64>,
+    pub tva_groups: Vec<ReceiptTvaGroup>,
+    pub hash: String,
+    pub is_avoir: bool,
+    pub loyalty_qr: Option<String>, // base64url-encoded binary QR payload
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RapportDoc {
-    pub store_name:         String,
-    pub session_label:      String,
-    pub session_date:       String,
-    pub nb_transactions:    i64,
-    pub net_ttc:            i64,
-    pub total_ventes_ttc:   i64,
-    pub total_avoirs_ttc:   i64,
-    pub pay_cb:             i64,
-    pub pay_especes:        i64,
-    pub pay_cheque:         i64,
-    pub pay_autre:          i64,
-    pub tva_550:            i64,
-    pub ht_550:             i64,
-    pub tva_1000:           i64,
-    pub ht_1000:            i64,
-    pub tva_2000:           i64,
-    pub ht_2000:            i64,
-    pub is_z:               bool,
+    pub store_name: String,
+    pub session_label: String,
+    pub session_date: String,
+    pub nb_transactions: i64,
+    pub net_ttc: i64,
+    pub total_ventes_ttc: i64,
+    pub total_avoirs_ttc: i64,
+    pub pay_cb: i64,
+    pub pay_especes: i64,
+    pub pay_cheque: i64,
+    pub pay_autre: i64,
+    pub tva_550: i64,
+    pub ht_550: i64,
+    pub tva_1000: i64,
+    pub ht_1000: i64,
+    pub tva_2000: i64,
+    pub ht_2000: i64,
+    pub is_z: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct KitchenLine {
     pub product_name: String,
-    pub quantity:     i64,
+    pub quantity: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct KitchenDoc {
     pub table_name: String,
-    pub covers:     i64,
-    pub subtitle:   Option<String>,
-    pub lines:      Vec<KitchenLine>,
+    pub covers: i64,
+    pub subtitle: Option<String>,
+    pub lines: Vec<KitchenLine>,
 }
 
 // ── Output type ───────────────────────────────────────────────
@@ -83,8 +89,8 @@ pub struct KitchenDoc {
 #[derive(Debug, Serialize)]
 pub struct PrinterStatus {
     pub connected: bool,
-    pub ip:        String,
-    pub port:      u16,
+    pub ip: String,
+    pub port: u16,
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -99,7 +105,9 @@ async fn get_setting(pool: &sqlx::SqlitePool, key: &str) -> Option<String> {
 }
 
 fn parse_port(v: Option<String>) -> u16 {
-    v.unwrap_or_else(|| "9100".to_string()).parse().unwrap_or(9100)
+    v.unwrap_or_else(|| "9100".to_string())
+        .parse()
+        .unwrap_or(9100)
 }
 
 fn paper_mm(v: Option<String>) -> u8 {
@@ -122,9 +130,9 @@ async fn connect_and_send(ip: &str, port: u16, bytes: &[u8]) -> Result<(), Strin
 #[derive(sqlx::FromRow)]
 struct PrinterRow {
     printer_type: String,
-    ip:           Option<String>,
-    port:         i64,
-    paper_mm:     i64,
+    ip: Option<String>,
+    port: i64,
+    paper_mm: i64,
 }
 
 /// Look up the best printer for a role from the managed `printers` table.
@@ -149,7 +157,9 @@ async fn get_printer_row(pool: &sqlx::SqlitePool, role: &str) -> Option<PrinterR
 /// Priority: printers table → legacy settings keys.
 async fn send_to_printer(pool: &sqlx::SqlitePool, bytes: Vec<u8>) -> Result<(), String> {
     if let Some(p) = get_printer_row(pool, "receipt").await {
-        if p.printer_type == "screen" { return Ok(()); } // frontend handles display
+        if p.printer_type == "screen" {
+            return Ok(());
+        } // frontend handles display
         let ip = p.ip.unwrap_or_default();
         if !ip.is_empty() {
             return connect_and_send(&ip, p.port as u16, &bytes).await;
@@ -158,7 +168,9 @@ async fn send_to_printer(pool: &sqlx::SqlitePool, bytes: Vec<u8>) -> Result<(), 
     // Legacy fallback
     let ip = get_setting(pool, "printer_ip").await.unwrap_or_default();
     if ip.is_empty() {
-        return Err("Aucune imprimante configurée. Rendez-vous dans Paramètres → Imprimantes.".to_string());
+        return Err(
+            "Aucune imprimante configurée. Rendez-vous dans Paramètres → Imprimantes.".to_string(),
+        );
     }
     let port = parse_port(get_setting(pool, "printer_port").await);
     connect_and_send(&ip, port, &bytes).await
@@ -168,14 +180,18 @@ async fn send_to_printer(pool: &sqlx::SqlitePool, bytes: Vec<u8>) -> Result<(), 
 /// Priority: printers table (kitchen role) → legacy kitchen settings → receipt printer.
 async fn send_to_kitchen_printer(pool: &sqlx::SqlitePool, bytes: Vec<u8>) -> Result<(), String> {
     if let Some(p) = get_printer_row(pool, "kitchen").await {
-        if p.printer_type == "screen" { return Ok(()); }
+        if p.printer_type == "screen" {
+            return Ok(());
+        }
         let ip = p.ip.unwrap_or_default();
         if !ip.is_empty() {
             return connect_and_send(&ip, p.port as u16, &bytes).await;
         }
     }
     // Legacy kitchen settings
-    let kitchen_ip = get_setting(pool, "kitchen_printer_ip").await.unwrap_or_default();
+    let kitchen_ip = get_setting(pool, "kitchen_printer_ip")
+        .await
+        .unwrap_or_default();
     if !kitchen_ip.is_empty() {
         let port = parse_port(get_setting(pool, "kitchen_printer_port").await);
         return connect_and_send(&kitchen_ip, port, &bytes).await;
@@ -225,8 +241,11 @@ pub async fn print_kitchen_escpos(
     let mm = if let Some(p) = get_printer_row(pool, "kitchen").await {
         p.paper_mm as u8
     } else {
-        paper_mm(get_setting(pool, "kitchen_printer_paper_mm").await
-            .or(get_setting(pool, "printer_paper_mm").await))
+        paper_mm(
+            get_setting(pool, "kitchen_printer_paper_mm")
+                .await
+                .or(get_setting(pool, "printer_paper_mm").await),
+        )
     };
     let bytes = build_kitchen(&doc, mm);
     send_to_kitchen_printer(pool, bytes).await
@@ -246,27 +265,39 @@ pub async fn open_cash_drawer(state: State<'_, AppState>, pin: u8) -> Result<(),
 #[tauri::command]
 pub async fn test_printer(state: State<'_, AppState>) -> Result<PrinterStatus, String> {
     let pool = state.db.as_ref();
-    let ip   = get_setting(pool, "printer_ip").await.unwrap_or_default();
+    let ip = get_setting(pool, "printer_ip").await.unwrap_or_default();
     let port = parse_port(get_setting(pool, "printer_port").await);
 
     if ip.is_empty() {
-        return Ok(PrinterStatus { connected: false, ip, port });
+        return Ok(PrinterStatus {
+            connected: false,
+            ip,
+            port,
+        });
     }
 
     let test_bytes = vec![
-        0x1B, 0x40_u8,             // ESC @ init
-        b'T', b'e', b's', b't',    // "Test"
-        0x0A, 0x0A, 0x0A, 0x0A,   // 4 line feeds
-        0x1D, 0x56, 0x42, 0x03,   // partial cut
+        0x1B, 0x40_u8, // ESC @ init
+        b'T', b'e', b's', b't', // "Test"
+        0x0A, 0x0A, 0x0A, 0x0A, // 4 line feeds
+        0x1D, 0x56, 0x42, 0x03, // partial cut
     ];
 
     match TcpStream::connect(format!("{}:{}", ip, port)).await {
         Ok(mut stream) => {
             let _ = stream.write_all(&test_bytes).await;
             let _ = stream.flush().await;
-            Ok(PrinterStatus { connected: true, ip, port })
+            Ok(PrinterStatus {
+                connected: true,
+                ip,
+                port,
+            })
         }
-        Err(_) => Ok(PrinterStatus { connected: false, ip, port }),
+        Err(_) => Ok(PrinterStatus {
+            connected: false,
+            ip,
+            port,
+        }),
     }
 }
 
@@ -275,26 +306,38 @@ pub async fn test_printer(state: State<'_, AppState>) -> Result<PrinterStatus, S
 #[tauri::command]
 pub async fn test_kitchen_printer(state: State<'_, AppState>) -> Result<PrinterStatus, String> {
     let pool = state.db.as_ref();
-    let ip   = get_setting(pool, "kitchen_printer_ip").await.unwrap_or_default();
+    let ip = get_setting(pool, "kitchen_printer_ip")
+        .await
+        .unwrap_or_default();
     let port = parse_port(get_setting(pool, "kitchen_printer_port").await);
 
     if ip.is_empty() {
-        return Ok(PrinterStatus { connected: false, ip, port });
+        return Ok(PrinterStatus {
+            connected: false,
+            ip,
+            port,
+        });
     }
 
     let test_bytes = vec![
-        0x1B, 0x40_u8,
-        b'C', b'u', b'i', b's', b'i', b'n', b'e',
-        0x0A, 0x0A, 0x0A, 0x0A,
-        0x1D, 0x56, 0x42, 0x03,
+        0x1B, 0x40_u8, b'C', b'u', b'i', b's', b'i', b'n', b'e', 0x0A, 0x0A, 0x0A, 0x0A, 0x1D,
+        0x56, 0x42, 0x03,
     ];
 
     match TcpStream::connect(format!("{}:{}", ip, port)).await {
         Ok(mut stream) => {
             let _ = stream.write_all(&test_bytes).await;
             let _ = stream.flush().await;
-            Ok(PrinterStatus { connected: true, ip, port })
+            Ok(PrinterStatus {
+                connected: true,
+                ip,
+                port,
+            })
         }
-        Err(_) => Ok(PrinterStatus { connected: false, ip, port }),
+        Err(_) => Ok(PrinterStatus {
+            connected: false,
+            ip,
+            port,
+        }),
     }
 }

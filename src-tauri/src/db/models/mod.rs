@@ -1,15 +1,13 @@
 pub mod cashier;
-pub mod transaction;
-pub mod product;
+pub mod open_order;
 pub mod printer;
+pub mod product;
 pub mod session;
 pub mod table;
-pub mod open_order;
+pub mod transaction;
 
 pub use cashier::*;
-pub use transaction::*;
-pub use product::*;
-pub use printer::*;
-pub use session::*;
-pub use table::*;
 pub use open_order::*;
+pub use printer::*;
+pub use product::*;
+pub use table::*;

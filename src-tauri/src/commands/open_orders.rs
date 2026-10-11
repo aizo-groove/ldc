@@ -9,13 +9,11 @@ pub async fn get_table_order(
 ) -> Result<Option<OpenOrderFull>, String> {
     let pool = state.db.as_ref();
 
-    let order = sqlx::query_as::<_, OpenOrder>(
-        "SELECT * FROM open_orders WHERE table_id = ?",
-    )
-    .bind(&table_id)
-    .fetch_optional(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let order = sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders WHERE table_id = ?")
+        .bind(&table_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let Some(order) = order else { return Ok(None) };
 
@@ -23,7 +21,7 @@ pub async fn get_table_order(
         "SELECT * FROM open_order_lines WHERE order_id = ? ORDER BY line_no",
     )
     .bind(&order.id)
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -31,12 +29,10 @@ pub async fn get_table_order(
 }
 
 #[tauri::command]
-pub async fn list_open_orders(
-    state: State<'_, AppState>,
-) -> Result<Vec<OpenOrder>, String> {
+pub async fn list_open_orders(state: State<'_, AppState>) -> Result<Vec<OpenOrder>, String> {
     let pool = state.db.as_ref();
     sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders")
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -58,26 +54,27 @@ pub async fn save_table_order(
     // Validate session_id: use None if session doesn't exist to avoid FK violation.
     let session_id: Option<String> = match session_id {
         Some(ref sid) => {
-            let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)"
-            )
-            .bind(sid)
-            .fetch_one(&*pool)
-            .await
-            .unwrap_or(false);
-            if exists { session_id } else { None }
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)")
+                    .bind(sid)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(false);
+            if exists {
+                session_id
+            } else {
+                None
+            }
         }
         None => None,
     };
 
     // Upsert the open_order row
-    let order_id = sqlx::query_scalar::<_, String>(
-        "SELECT id FROM open_orders WHERE table_id = ?",
-    )
-    .bind(&table_id)
-    .fetch_optional(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let order_id = sqlx::query_scalar::<_, String>("SELECT id FROM open_orders WHERE table_id = ?")
+        .bind(&table_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let order_id = if let Some(id) = order_id {
         sqlx::query(
@@ -88,7 +85,7 @@ pub async fn save_table_order(
         .bind(&note)
         .bind(&now)
         .bind(&id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
         id
@@ -103,7 +100,7 @@ pub async fn save_table_order(
         .bind(covers)
         .bind(&note)
         .bind(&now)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
         new_id
@@ -112,7 +109,7 @@ pub async fn save_table_order(
     // Replace all lines
     sqlx::query("DELETE FROM open_order_lines WHERE order_id = ?")
         .bind(&order_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -136,7 +133,7 @@ pub async fn save_table_order(
         .bind(line.tva_rate_pct)
         .bind(line.discount_ttc)
         .bind(line.sent_qty)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     }
@@ -144,7 +141,7 @@ pub async fn save_table_order(
     // Fetch and return the full order
     let order = sqlx::query_as::<_, OpenOrder>("SELECT * FROM open_orders WHERE id = ?")
         .bind(&order_id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -152,11 +149,14 @@ pub async fn save_table_order(
         "SELECT * FROM open_order_lines WHERE order_id = ? ORDER BY line_no",
     )
     .bind(&order_id)
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
-    Ok(OpenOrderFull { order, lines: saved_lines })
+    Ok(OpenOrderFull {
+        order,
+        lines: saved_lines,
+    })
 }
 
 #[tauri::command]
@@ -167,7 +167,7 @@ pub async fn mark_sent_to_kitchen(
     let pool = state.db.as_ref();
     sqlx::query("UPDATE open_orders SET sent_to_kitchen = 1 WHERE table_id = ?")
         .bind(&table_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -181,7 +181,7 @@ pub async fn delete_table_order(
     let pool = state.db.as_ref();
     sqlx::query("DELETE FROM open_orders WHERE table_id = ?")
         .bind(&table_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())

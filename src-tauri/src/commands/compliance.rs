@@ -37,7 +37,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
     let pool = state.db.as_ref();
 
     let sessions = sqlx::query_as::<_, Session>("SELECT * FROM sessions ORDER BY opened_at")
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -48,7 +48,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
             "SELECT * FROM transactions WHERE session_id = ? ORDER BY sequence_no",
         )
         .bind(&session.id)
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -58,25 +58,28 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
                 "SELECT * FROM transaction_lines WHERE transaction_id = ? ORDER BY line_no",
             )
             .bind(&tx.id)
-            .fetch_all(&*pool)
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;
 
-            let payments = sqlx::query_as::<_, Payment>(
-                "SELECT * FROM payments WHERE transaction_id = ?",
-            )
-            .bind(&tx.id)
-            .fetch_all(&*pool)
-            .await
-            .map_err(|e| e.to_string())?;
+            let payments =
+                sqlx::query_as::<_, Payment>("SELECT * FROM payments WHERE transaction_id = ?")
+                    .bind(&tx.id)
+                    .fetch_all(pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
 
-            tx_archives.push(TransactionArchive { transaction: tx, lines, payments });
+            tx_archives.push(TransactionArchive {
+                transaction: tx,
+                lines,
+                payments,
+            });
         }
 
         let cloture = if let Some(ref cloture_id) = session.cloture_id {
             sqlx::query_as::<_, Cloture>("SELECT * FROM clotures WHERE id = ?")
                 .bind(cloture_id)
-                .fetch_optional(&*pool)
+                .fetch_optional(pool)
                 .await
                 .map_err(|e| e.to_string())?
         } else {
@@ -86,25 +89,31 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
         let grand_total = if let Some(ref c) = cloture {
             sqlx::query_as::<_, GrandTotal>("SELECT * FROM grand_totals WHERE cloture_id = ?")
                 .bind(&c.id)
-                .fetch_optional(&*pool)
+                .fetch_optional(pool)
                 .await
                 .map_err(|e| e.to_string())?
         } else {
             None
         };
 
-        session_archives.push(SessionArchive { session, transactions: tx_archives, cloture, grand_total });
+        session_archives.push(SessionArchive {
+            session,
+            transactions: tx_archives,
+            cloture,
+            grand_total,
+        });
     }
 
-    let journal = sqlx::query_as::<_, JournalEntry>(
-        "SELECT * FROM journal_entries ORDER BY sequence_no",
-    )
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let journal =
+        sqlx::query_as::<_, JournalEntry>("SELECT * FROM journal_entries ORDER BY sequence_no")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
     Ok(ArchiveExport {
-        exported_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+        exported_at: chrono::Utc::now()
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+            .to_string(),
         software: "LDC",
         version: env!("CARGO_PKG_VERSION"),
         sessions: session_archives,
@@ -115,7 +124,11 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
 /// Retourne le chemin absolu vers le fichier SQLite de la base de données.
 #[tauri::command]
 pub async fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
-    let db_name = if cfg!(debug_assertions) { "ldc-dev.db" } else { "ldc.db" };
+    let db_name = if cfg!(debug_assertions) {
+        "ldc-dev.db"
+    } else {
+        "ldc.db"
+    };
     let path = app
         .path()
         .app_data_dir()

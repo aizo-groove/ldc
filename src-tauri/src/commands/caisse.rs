@@ -34,20 +34,18 @@ pub async fn list_sessions(
     limit: Option<i64>,
 ) -> Result<Vec<Session>, String> {
     let pool = state.db.as_ref();
-    sqlx::query_as::<_, Session>(
-        "SELECT * FROM sessions ORDER BY opened_at DESC LIMIT ?",
-    )
-    .bind(limit.unwrap_or(50))
-    .fetch_all(&*pool)
-    .await
-    .map_err(|e| e.to_string())
+    sqlx::query_as::<_, Session>("SELECT * FROM sessions ORDER BY opened_at DESC LIMIT ?")
+        .bind(limit.unwrap_or(50))
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_active_session(state: State<'_, AppState>) -> Result<Option<Session>, String> {
     let pool = state.db.as_ref();
     sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE status = 'OPEN' LIMIT 1")
-        .fetch_optional(&*pool)
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -65,7 +63,7 @@ pub async fn open_session(
 
     let existing =
         sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE status = 'OPEN' LIMIT 1")
-            .fetch_optional(&*pool)
+            .fetch_optional(pool)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -82,7 +80,7 @@ pub async fn open_session(
     .bind(&opening_note)
     .bind(&cashier_id)
     .bind(&station)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -95,13 +93,13 @@ pub async fn open_session(
     )
     .bind(&id)
     .bind(&id)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -122,13 +120,13 @@ pub async fn close_session(
     )
     .bind(&now)
     .bind(&session_id)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
         .bind(&session_id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -171,7 +169,7 @@ pub async fn get_rapport_x(
 
     let session = sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
         .bind(&session_id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -183,7 +181,7 @@ pub async fn get_rapport_x(
            FROM transactions WHERE session_id = ?"#,
     )
     .bind(&session_id)
-    .fetch_one(&*pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -198,7 +196,7 @@ pub async fn get_rapport_x(
            WHERE t.session_id = ? AND t.type = 'VENTE'"#,
     )
     .bind(&session_id)
-    .fetch_one(&*pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -219,7 +217,7 @@ pub async fn get_rapport_x(
            WHERE t.session_id = ? AND t.type = 'VENTE'"#,
     )
     .bind(&session_id)
-    .fetch_one(&*pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 

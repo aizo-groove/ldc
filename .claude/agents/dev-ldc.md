@@ -1,6 +1,6 @@
 ---
 name: dev-ldc
-description: Développeur LDC (Tauri v2, Rust, SQLite/sqlx, React 18, Zustand, Tailwind v4). Implémente une issue du dépôt ldc de bout en bout avec tests.
+description: Développeur LDC (Tauri v2, Rust, SQLite/sqlx, React 19, Zustand, Tailwind v4). Implémente une issue du dépôt ldc de bout en bout avec tests.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 ---

@@ -1,4 +1,4 @@
-use crate::db::models::{Room, RestaurantTable};
+use crate::db::models::{RestaurantTable, Room};
 use crate::AppState;
 use tauri::State;
 
@@ -8,7 +8,7 @@ use tauri::State;
 pub async fn list_rooms(state: State<'_, AppState>) -> Result<Vec<Room>, String> {
     let pool = state.db.as_ref();
     sqlx::query_as::<_, Room>("SELECT * FROM rooms ORDER BY sort_order, name")
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -18,19 +18,19 @@ pub async fn create_room(state: State<'_, AppState>, name: String) -> Result<Roo
     let pool = state.db.as_ref();
     let id = uuid::Uuid::new_v4().to_string();
     let max_order: i64 = sqlx::query_scalar("SELECT COALESCE(MAX(sort_order), 0) FROM rooms")
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
     sqlx::query("INSERT INTO rooms (id, name, sort_order) VALUES (?, ?, ?)")
         .bind(&id)
         .bind(&name)
         .bind(max_order + 1)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     sqlx::query_as::<_, Room>("SELECT * FROM rooms WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -45,12 +45,12 @@ pub async fn update_room(
     sqlx::query("UPDATE rooms SET name = ? WHERE id = ?")
         .bind(&name)
         .bind(&id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     sqlx::query_as::<_, Room>("SELECT * FROM rooms WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -60,7 +60,7 @@ pub async fn delete_room(state: State<'_, AppState>, id: String) -> Result<(), S
     let pool = state.db.as_ref();
     sqlx::query("DELETE FROM rooms WHERE id = ?")
         .bind(&id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -74,7 +74,7 @@ pub async fn list_tables(state: State<'_, AppState>) -> Result<Vec<RestaurantTab
     sqlx::query_as::<_, RestaurantTable>(
         "SELECT * FROM restaurant_tables ORDER BY room_id, sort_order, name",
     )
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())
 }
@@ -99,12 +99,12 @@ pub async fn create_table(
     .bind(table.pos_x)
     .bind(table.pos_y)
     .bind(table.sort_order)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
     sqlx::query_as::<_, RestaurantTable>("SELECT * FROM restaurant_tables WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -130,12 +130,12 @@ pub async fn update_table(
     .bind(table.pos_y)
     .bind(table.sort_order)
     .bind(&table.id)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
     sqlx::query_as::<_, RestaurantTable>("SELECT * FROM restaurant_tables WHERE id = ?")
         .bind(&table.id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -150,7 +150,7 @@ pub async fn update_table_status(
     sqlx::query("UPDATE restaurant_tables SET status = ? WHERE id = ?")
         .bind(&status)
         .bind(&table_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -168,7 +168,7 @@ pub async fn update_table_position(
         .bind(pos_x)
         .bind(pos_y)
         .bind(&table_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -179,7 +179,7 @@ pub async fn delete_table(state: State<'_, AppState>, table_id: String) -> Resul
     let pool = state.db.as_ref();
     sqlx::query("DELETE FROM restaurant_tables WHERE id = ?")
         .bind(&table_id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
