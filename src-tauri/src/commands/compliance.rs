@@ -37,7 +37,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
     let pool = state.db.as_ref();
 
     let sessions = sqlx::query_as::<_, Session>("SELECT * FROM sessions ORDER BY opened_at")
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -48,7 +48,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
             "SELECT * FROM transactions WHERE session_id = ? ORDER BY sequence_no",
         )
         .bind(&session.id)
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -58,14 +58,14 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
                 "SELECT * FROM transaction_lines WHERE transaction_id = ? ORDER BY line_no",
             )
             .bind(&tx.id)
-            .fetch_all(&*pool)
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;
 
             let payments =
                 sqlx::query_as::<_, Payment>("SELECT * FROM payments WHERE transaction_id = ?")
                     .bind(&tx.id)
-                    .fetch_all(&*pool)
+                    .fetch_all(pool)
                     .await
                     .map_err(|e| e.to_string())?;
 
@@ -79,7 +79,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
         let cloture = if let Some(ref cloture_id) = session.cloture_id {
             sqlx::query_as::<_, Cloture>("SELECT * FROM clotures WHERE id = ?")
                 .bind(cloture_id)
-                .fetch_optional(&*pool)
+                .fetch_optional(pool)
                 .await
                 .map_err(|e| e.to_string())?
         } else {
@@ -89,7 +89,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
         let grand_total = if let Some(ref c) = cloture {
             sqlx::query_as::<_, GrandTotal>("SELECT * FROM grand_totals WHERE cloture_id = ?")
                 .bind(&c.id)
-                .fetch_optional(&*pool)
+                .fetch_optional(pool)
                 .await
                 .map_err(|e| e.to_string())?
         } else {
@@ -106,7 +106,7 @@ pub async fn export_archive(state: State<'_, AppState>) -> Result<ArchiveExport,
 
     let journal =
         sqlx::query_as::<_, JournalEntry>("SELECT * FROM journal_entries ORDER BY sequence_no")
-            .fetch_all(&*pool)
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;
 

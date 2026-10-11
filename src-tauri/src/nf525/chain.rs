@@ -35,6 +35,8 @@ pub fn hash_transaction(
 ///   sequence_no | net_ttc_centimes | created_at_iso8601 | previous_hash
 ///
 /// `previous_hash` est `"GENESIS"` pour la toute première clôture.
+// Non utilisé à ce jour ; conservé (code NF525 — modification réservée au label area:nf525).
+#[allow(dead_code)]
 pub fn hash_cloture(
     sequence_no: i64,
     net_ttc: i64,
@@ -50,6 +52,7 @@ pub fn hash_cloture(
 
 /// Relit toute la chaîne de transactions depuis la DB et vérifie son intégrité.
 /// Retourne `Ok(count)` si tout est valide, `Err(sequence_no)` sur le premier maillon brisé.
+#[allow(clippy::type_complexity)]
 pub fn verify_chain(
     transactions: &[(i64, String, i64, String, Option<String>, String)],
     // (sequence_no, type, total_ttc, created_at, previous_hash, stored_hash)

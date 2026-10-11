@@ -6,7 +6,7 @@ use tauri::State;
 pub async fn list_cashiers(state: State<'_, AppState>) -> Result<Vec<Cashier>, String> {
     let pool = state.db.as_ref();
     sqlx::query_as::<_, Cashier>("SELECT * FROM cashiers WHERE active = 1 ORDER BY name")
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -25,13 +25,13 @@ pub async fn create_cashier(
         .bind(&name)
         .bind(&pin)
         .bind(&role)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Cashier>("SELECT * FROM cashiers WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -50,13 +50,13 @@ pub async fn update_cashier(
         .bind(&pin)
         .bind(&role)
         .bind(&id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Cashier>("SELECT * FROM cashiers WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -66,7 +66,7 @@ pub async fn delete_cashier(state: State<'_, AppState>, id: String) -> Result<()
     let pool = state.db.as_ref();
     sqlx::query("UPDATE cashiers SET active = 0 WHERE id = ?")
         .bind(&id)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -83,7 +83,7 @@ pub async fn verify_cashier_pin(
     let stored: Option<Option<String>> =
         sqlx::query_scalar("SELECT pin FROM cashiers WHERE id = ? AND active = 1")
             .bind(&cashier_id)
-            .fetch_optional(&*pool)
+            .fetch_optional(pool)
             .await
             .map_err(|e| e.to_string())?;
 

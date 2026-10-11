@@ -35,14 +35,14 @@ pub async fn create_transaction(
     // -- Séquence NF525 --
     let sequence_no: i64 =
         sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(sequence_no), 0) + 1 FROM transactions")
-            .fetch_one(&*pool)
+            .fetch_one(pool)
             .await
             .map_err(|e| e.to_string())?;
 
     let previous_hash: Option<String> = sqlx::query_scalar::<_, String>(
         "SELECT hash FROM transactions ORDER BY sequence_no DESC LIMIT 1",
     )
-    .fetch_optional(&*pool)
+    .fetch_optional(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -73,7 +73,7 @@ pub async fn create_transaction(
     .bind(&previous_hash)
     .bind(&hash)
     .bind(&created_at)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -84,7 +84,7 @@ pub async fn create_transaction(
                 let row: Option<(i64, Option<i64>)> =
                     sqlx::query_as("SELECT track_stock, stock_qty FROM products WHERE id = ?")
                         .bind(product_id)
-                        .fetch_optional(&*pool)
+                        .fetch_optional(pool)
                         .await
                         .map_err(|e| e.to_string())?;
 
@@ -117,7 +117,7 @@ pub async fn create_transaction(
                 let exists: bool =
                     sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE id = ?)")
                         .bind(pid)
-                        .fetch_one(&*pool)
+                        .fetch_one(pool)
                         .await
                         .unwrap_or(false);
                 if exists {
@@ -150,7 +150,7 @@ pub async fn create_transaction(
         .bind(line_total_ht)
         .bind(line_total_tva)
         .bind(line_total_ttc)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -186,7 +186,7 @@ pub async fn create_transaction(
             .bind(delta)
             .bind(&created_at)
             .bind(product_id)
-            .execute(&*pool)
+            .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
         }
@@ -210,7 +210,7 @@ pub async fn create_transaction(
         .bind(pay.cash_given)
         .bind(cash_change)
         .bind(&pay.reference)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -240,13 +240,13 @@ pub async fn create_transaction(
     .bind(sequence_no)
     .bind(&transaction_type)
     .bind(total_ttc)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     let transaction = sqlx::query_as::<_, Transaction>("SELECT * FROM transactions WHERE id = ?")
         .bind(&tx_id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -266,7 +266,7 @@ pub async fn get_transaction(
 
     let transaction = sqlx::query_as::<_, Transaction>("SELECT * FROM transactions WHERE id = ?")
         .bind(&transaction_id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -274,13 +274,13 @@ pub async fn get_transaction(
         "SELECT * FROM transaction_lines WHERE transaction_id = ? ORDER BY line_no",
     )
     .bind(&transaction_id)
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     let payments = sqlx::query_as::<_, Payment>("SELECT * FROM payments WHERE transaction_id = ?")
         .bind(&transaction_id)
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -300,7 +300,7 @@ pub async fn list_recent_transactions(
     let pool = state.db.as_ref();
     sqlx::query_as::<_, Transaction>("SELECT * FROM transactions ORDER BY sequence_no DESC LIMIT ?")
         .bind(limit)
-        .fetch_all(&*pool)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -315,7 +315,7 @@ pub async fn list_transactions(
         "SELECT * FROM transactions WHERE session_id = ? ORDER BY sequence_no",
     )
     .bind(&session_id)
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())
 }
@@ -339,7 +339,7 @@ pub async fn verify_chain(state: State<'_, AppState>) -> Result<usize, String> {
         "SELECT sequence_no, type, total_ttc, created_at, previous_hash, hash
          FROM transactions ORDER BY sequence_no",
     )
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 

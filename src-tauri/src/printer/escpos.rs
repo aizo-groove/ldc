@@ -74,6 +74,7 @@ impl EscPos {
     pub fn align_center(&mut self) {
         self.raw(&[0x1B, 0x61, 0x01]);
     }
+    #[allow(dead_code)]
     pub fn align_right(&mut self) {
         self.raw(&[0x1B, 0x61, 0x02]);
     }
@@ -95,7 +96,7 @@ impl EscPos {
     }
 
     pub fn sep(&mut self, ch: char) {
-        let s: String = std::iter::repeat(ch).take(self.cols).collect();
+        let s: String = std::iter::repeat_n(ch, self.cols).collect();
         self.println(&s);
     }
 
@@ -247,7 +248,7 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     p.println("Merci de votre visite !");
     p.lf();
     p.println(&format!("Ticket #{:0>5}", doc.sequence_no));
-    p.println(&format!("{}", &doc.hash[..16]));
+    p.println(&doc.hash[..16]);
     p.align_left();
 
     p.cut();

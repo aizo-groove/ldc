@@ -36,13 +36,13 @@ pub async fn create_printer(
     .bind(input.paper_mm)
     .bind(&input.roles)
     .bind(&now)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Printer>("SELECT * FROM printers WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -67,13 +67,13 @@ pub async fn update_printer(
     .bind(input.paper_mm)
     .bind(&input.roles)
     .bind(&id)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
 
     sqlx::query_as::<_, Printer>("SELECT * FROM printers WHERE id = ?")
         .bind(&id)
-        .fetch_one(&*pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -97,7 +97,7 @@ pub async fn test_printer_by_id(
 
     let printer = sqlx::query_as::<_, Printer>("SELECT * FROM printers WHERE id = ?")
         .bind(&id)
-        .fetch_optional(&*pool)
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
 

@@ -85,7 +85,7 @@ pub async fn get_setting(
     let pool = state.db.as_ref();
     sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
         .bind(&key)
-        .fetch_optional(&*pool)
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
 }
@@ -103,7 +103,7 @@ pub async fn update_setting(
     )
     .bind(&key)
     .bind(&value)
-    .execute(&*pool)
+    .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
     Ok(())

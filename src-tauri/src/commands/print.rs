@@ -11,8 +11,12 @@ use tokio::net::TcpStream;
 pub struct ReceiptLine {
     pub product_name: String,
     pub quantity: i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
     pub unit_price_ttc: i64,
     pub line_total_ttc: i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
     pub tva_rate_pct: i64,
 }
 
@@ -20,6 +24,8 @@ pub struct ReceiptLine {
 pub struct ReceiptTvaGroup {
     pub rate_pct: i64,
     pub tva: i64,
+    // Envoyé par le frontend, pas encore utilisé à l'impression.
+    #[allow(dead_code)]
     pub ht: i64,
 }
 

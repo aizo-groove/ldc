@@ -24,7 +24,7 @@ pub async fn list_journal_entries(
         "SELECT * FROM journal_entries ORDER BY sequence_no DESC LIMIT ?",
     )
     .bind(limit)
-    .fetch_all(&*pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())
 }
