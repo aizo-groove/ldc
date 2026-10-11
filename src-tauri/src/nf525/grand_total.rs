@@ -6,8 +6,6 @@
 use crate::db::models::session::GrandTotal;
 
 /// Totaux d'une session, passés par le moteur de clôture.
-// Non utilisé à ce jour ; conservé (code NF525 — modification réservée au label area:nf525).
-#[allow(dead_code)]
 pub struct SessionTotals {
     pub ventes_ttc: i64,
     pub avoirs_ttc: i64,
@@ -20,8 +18,6 @@ pub struct SessionTotals {
 
 /// Calcule les nouveaux grands totaux en additionnant les totaux de la session
 /// aux derniers grands totaux connus (ou zéro si première clôture).
-// Non utilisé à ce jour ; conservé (code NF525 — modification réservée au label area:nf525).
-#[allow(dead_code)]
 pub fn compute_grand_totals(
     previous: Option<&GrandTotal>,
     session: &SessionTotals,

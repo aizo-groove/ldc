@@ -357,6 +357,12 @@ pub async fn verify_chain(state: State<'_, AppState>) -> Result<usize, String> {
         })
         .collect();
 
-    crate::nf525::chain::verify_chain(&chain)
-        .map_err(|seq| format!("Chaîne brisée à la transaction n°{}", seq))
+    let count = crate::nf525::chain::verify_chain(&chain)
+        .map_err(|seq| format!("Chaîne brisée à la transaction n°{}", seq))?;
+
+    crate::nf525::cloture::verify_clotures(pool)
+        .await?
+        .map_err(|seq| format!("Chaîne brisée à la clôture Z n°{}", seq))?;
+
+    Ok(count)
 }
