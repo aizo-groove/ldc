@@ -35,7 +35,8 @@ jobs:
 
             Utilise le sous-agent `reviewer` (.claude/agents/reviewer.md) pour relire cette PR.
             Lis CLAUDE.md, docs/ECOSYSTEM.md et, si l'intégration est touchée, docs/FIDO_API_CONTRACT.md.
-            Publie un seul commentaire au format défini par le reviewer.
+            Publie un seul commentaire au format défini par le reviewer, avec
+            `gh pr comment ${{ github.event.pull_request.number }} --body "…"`.
             Ne modifie aucun fichier et ne pousse aucun commit.
           claude_args: |
             --model claude-opus-5-5
