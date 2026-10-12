@@ -34,6 +34,9 @@ pub fn hash_transaction(
 pub struct ClotureHashFields {
     pub sequence_no: i64,
     pub session_id: String,
+    /// Dernière transaction couverte par la clôture (`None` si session vide).
+    pub last_transaction_seq: Option<i64>,
+    pub last_transaction_hash: Option<String>,
     pub total_ventes_ttc: i64,
     pub total_avoirs_ttc: i64,
     pub total_annulations_ttc: i64,
@@ -56,18 +59,23 @@ pub struct ClotureHashFields {
 /// Calcule le hash d'une clôture Z.
 ///
 /// Payload canonique (ordre fixe, séparateur `|`) :
-///   sequence_no | session_id | ventes | avoirs | annulations | net
+///   sequence_no | session_id | last_tx_seq | last_tx_hash | ventes | avoirs | annulations | net
 ///   | tva_2000 | tva_1000 | tva_550 | tva_210 | tva_0
 ///   | pay_especes | pay_cb | pay_cheque | pay_autre
 ///   | gt_ventes | gt_avoirs | gt_net | created_at_iso8601 | previous_hash
 ///
 /// Les grands totaux sont inclus : les falsifier casse la chaîne des clôtures.
+/// `last_tx_seq` / `last_tx_hash` valent `"NONE"` si la session est vide.
 /// `previous_hash` est `"GENESIS"` pour la toute première clôture.
 pub fn hash_cloture(c: &ClotureHashFields, previous_hash: &str) -> String {
     let payload = format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         c.sequence_no,
         c.session_id,
+        c.last_transaction_seq
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "NONE".to_string()),
+        c.last_transaction_hash.as_deref().unwrap_or("NONE"),
         c.total_ventes_ttc,
         c.total_avoirs_ttc,
         c.total_annulations_ttc,
@@ -212,6 +220,8 @@ mod tests {
         ClotureHashFields {
             sequence_no: seq,
             session_id: format!("s{}", seq),
+            last_transaction_seq: Some(seq),
+            last_transaction_hash: Some(format!("h{}", seq)),
             total_ventes_ttc: net,
             total_avoirs_ttc: 0,
             total_annulations_ttc: 0,

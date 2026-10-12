@@ -119,6 +119,21 @@ fn tva_columns(filter: &str) -> String {
     cols.join(",\n")
 }
 
+/// Dernière transaction (sequence_no, hash) d'une session, `None` si elle est vide.
+async fn last_transaction(
+    conn: &mut SqliteConnection,
+    session_id: &str,
+) -> Result<Option<(i64, String)>, String> {
+    sqlx::query_as(
+        "SELECT sequence_no, hash FROM transactions WHERE session_id = ?
+         ORDER BY sequence_no DESC LIMIT 1",
+    )
+    .bind(session_id)
+    .fetch_optional(conn)
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Totaux d'une session (rapport X et clôture Z).
 pub async fn session_totaux(pool: &SqlitePool, session_id: &str) -> Result<Totaux, String> {
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
@@ -148,6 +163,7 @@ pub async fn cloturer_session(pool: &SqlitePool, session_id: &str) -> Result<Clo
     }
 
     let totaux = compute_totaux(&mut tx, Scope::Session(session_id)).await?;
+    let last_tx = last_transaction(&mut tx, session_id).await?;
 
     let previous: Option<(i64, String)> =
         sqlx::query_as("SELECT sequence_no, hash FROM clotures ORDER BY sequence_no DESC LIMIT 1")
@@ -181,6 +197,8 @@ pub async fn cloturer_session(pool: &SqlitePool, session_id: &str) -> Result<Clo
     let fields = ClotureHashFields {
         sequence_no,
         session_id: session_id.to_string(),
+        last_transaction_seq: last_tx.as_ref().map(|(s, _)| *s),
+        last_transaction_hash: last_tx.map(|(_, h)| h),
         total_ventes_ttc: totaux.ventes,
         total_avoirs_ttc: totaux.avoirs,
         total_annulations_ttc: totaux.annulations,
@@ -207,8 +225,8 @@ pub async fn cloturer_session(pool: &SqlitePool, session_id: &str) -> Result<Clo
             total_ventes_ttc, total_avoirs_ttc, total_annulations_ttc, net_ttc,
             tva_2000, tva_1000, tva_550, tva_210, tva_0,
             pay_especes, pay_cb, pay_cheque, pay_autre,
-            previous_hash, hash, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+            previous_hash, hash, created_at, last_transaction_seq, last_transaction_hash)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&cloture_id)
     .bind(session_id)
@@ -229,6 +247,8 @@ pub async fn cloturer_session(pool: &SqlitePool, session_id: &str) -> Result<Clo
     .bind(&previous_hash)
     .bind(&hash)
     .bind(&now)
+    .bind(fields.last_transaction_seq)
+    .bind(&fields.last_transaction_hash)
     .execute(&mut *tx)
     .await
     .map_err(err)?;
@@ -303,22 +323,34 @@ pub async fn cloturer_session(pool: &SqlitePool, session_id: &str) -> Result<Clo
 }
 
 /// Relit les clôtures et leurs grands totaux, et vérifie la chaîne de hash.
+/// Vérifie aussi que la dernière transaction de chaque session clôturée est
+/// toujours celle figée dans sa clôture (aucune vente ajoutée après coup).
 /// `Ok(Err(sequence_no))` désigne la première clôture dont le maillon est brisé.
 pub async fn verify_clotures(pool: &SqlitePool) -> Result<Result<usize, i64>, String> {
     let clotures = sqlx::query_as::<_, Cloture>("SELECT * FROM clotures ORDER BY sequence_no")
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     let mut chain = Vec::new();
     for c in clotures {
+        let last_tx = last_transaction(&mut conn, &c.session_id).await?;
+        if last_tx.as_ref().map(|(s, _)| *s) != c.last_transaction_seq
+            || last_tx.map(|(_, h)| h) != c.last_transaction_hash
+        {
+            return Ok(Err(c.sequence_no));
+        }
+
         let gt = sqlx::query_as::<_, GrandTotal>("SELECT * FROM grand_totals WHERE cloture_id = ?")
             .bind(&c.id)
-            .fetch_one(pool)
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
         let fields = ClotureHashFields {
             sequence_no: c.sequence_no,
             session_id: c.session_id,
+            last_transaction_seq: c.last_transaction_seq,
+            last_transaction_hash: c.last_transaction_hash,
             total_ventes_ttc: c.total_ventes_ttc,
             total_avoirs_ttc: c.total_avoirs_ttc,
             total_annulations_ttc: c.total_annulations_ttc,
@@ -536,6 +568,25 @@ mod tests {
             .execute(&pool)
             .await
             .unwrap();
+        assert_eq!(cloture_chain(&pool).await, Err(1));
+    }
+
+    #[tokio::test]
+    async fn vente_ajoutee_apres_cloture_detectee() {
+        let pool = test_pool().await;
+        open_session(&pool, "s1").await;
+        add_transaction(&pool, "s1", "VENTE", 1100).await;
+        cloturer_session(&pool, "s1").await.unwrap();
+
+        // Session vide : clôturable, ancrée sur « NONE ».
+        open_session(&pool, "s2").await;
+        let z2 = cloturer_session(&pool, "s2").await.unwrap();
+        assert_eq!(z2.last_transaction_seq, None);
+        assert_eq!(cloture_chain(&pool).await, Ok(2));
+
+        // Vente insérée après coup dans la session déjà clôturée.
+        add_transaction(&pool, "s1", "VENTE", 550).await;
+        assert_eq!(transaction_chain(&pool).await, Ok(2));
         assert_eq!(cloture_chain(&pool).await, Err(1));
     }
 }
