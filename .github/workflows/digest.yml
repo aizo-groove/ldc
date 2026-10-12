@@ -83,6 +83,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Ne rien fermer si aucun digest n'a été rédigé
+          if [ ! -s digest.md ]; then echo "digest.md absent ou vide"; exit 1; fi
           for n in $(gh issue list --label digest --state open --json number -q '.[].number'); do
             gh issue close "$n" --reason completed
           done
