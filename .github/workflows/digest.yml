@@ -31,13 +31,18 @@ jobs:
           SINCE=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
           for r in $REPOS; do
             n=$(echo "$r" | tr '/' '_')
+            # Pas de statusCheckRollup : un token fin (fine-grained) ne peut pas lire les check runs.
+            # L'état de la CI d'une PR se déduit des runs Actions de sa branche (fichier _runs.json).
             gh pr list -R "$r" --state open --limit 50 \
-              --json number,title,isDraft,createdAt,author,labels,reviewDecision,statusCheckRollup,additions,deletions,url \
-              > "digest-data/${n}_open_prs.json"
+              --json number,title,isDraft,createdAt,author,labels,reviewDecision,headRefName,additions,deletions,url \
+              > "digest-data/${n}_open_prs.json" || echo "[]" > "digest-data/${n}_open_prs.json"
             gh pr list -R "$r" --state merged --search "merged:>=$SINCE" --limit 50 \
-              --json number,title,mergedAt,url > "digest-data/${n}_merged.json"
+              --json number,title,mergedAt,url > "digest-data/${n}_merged.json" || echo "[]" > "digest-data/${n}_merged.json"
             gh issue list -R "$r" --state open --limit 100 \
-              --json number,title,labels,updatedAt,url > "digest-data/${n}_issues.json"
+              --json number,title,labels,updatedAt,url > "digest-data/${n}_issues.json" || echo "[]" > "digest-data/${n}_issues.json"
+            gh run list -R "$r" --limit 100 \
+              --json name,headBranch,event,status,conclusion,createdAt,url \
+              > "digest-data/${n}_runs.json" || echo "[]" > "digest-data/${n}_runs.json"
             gh run list -R "$r" --status failure --created ">=$SINCE" --limit 20 \
               --json name,headBranch,url,createdAt > "digest-data/${n}_failed_runs.json" || echo "[]" > "digest-data/${n}_failed_runs.json"
           done
@@ -49,6 +54,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
+            Pour l'état de la CI d'une PR : prends, dans <dépôt>_runs.json, le run le plus récent de chaque
+            workflow dont headBranch = headRefName de la PR. CI verte = tous ces runs en conclusion success.
             Les fichiers JSON de ./digest-data décrivent l'état des 4 dépôts de l'écosystème LDC × FIDO
             (lis docs/ECOSYSTEM.md pour le contexte). Écris ./digest.md, en français, pour un mainteneur
             qui a 60 minutes aujourd'hui. Structure exacte :
