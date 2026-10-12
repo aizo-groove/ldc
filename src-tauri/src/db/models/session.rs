@@ -34,6 +34,8 @@ pub struct Cloture {
     pub previous_hash: Option<String>,
     pub hash: String,
     pub created_at: String,
+    pub last_transaction_seq: Option<i64>,
+    pub last_transaction_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

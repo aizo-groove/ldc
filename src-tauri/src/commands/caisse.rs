@@ -109,55 +109,14 @@ pub async fn close_session(
     state: State<'_, AppState>,
     session_id: String,
 ) -> Result<Session, String> {
-    // TODO : clôture Z complète (calcul totaux, hash NF525, grands totaux, impression Z).
     let pool = state.db.as_ref();
-    let now = chrono::Utc::now()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string();
-
-    sqlx::query(
-        "UPDATE sessions SET status = 'CLOSED', closed_at = ? WHERE id = ? AND status = 'OPEN'",
-    )
-    .bind(&now)
-    .bind(&session_id)
-    .execute(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    crate::nf525::cloture::cloturer_session(pool, &session_id).await?;
 
     sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
         .bind(&session_id)
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
-}
-
-#[derive(sqlx::FromRow)]
-struct SessionTotalsRow {
-    ventes: i64,
-    avoirs: i64,
-    nb: i64,
-}
-
-#[derive(sqlx::FromRow)]
-struct PaymentTotalsRow {
-    especes: i64,
-    cb: i64,
-    cheque: i64,
-    autre: i64,
-}
-
-#[derive(sqlx::FromRow)]
-struct TvaTotalsRow {
-    tva_2000: i64,
-    tva_1000: i64,
-    tva_550: i64,
-    tva_210: i64,
-    tva_0: i64,
-    ht_2000: i64,
-    ht_1000: i64,
-    ht_550: i64,
-    ht_210: i64,
-    ht_0: i64,
 }
 
 #[tauri::command]
@@ -173,73 +132,27 @@ pub async fn get_rapport_x(
         .await
         .map_err(|e| e.to_string())?;
 
-    let totals = sqlx::query_as::<_, SessionTotalsRow>(
-        r#"SELECT
-               CAST(COALESCE(SUM(CASE WHEN type = 'VENTE' THEN total_ttc ELSE 0 END), 0) AS INTEGER) AS ventes,
-               CAST(COALESCE(SUM(CASE WHEN type = 'AVOIR' THEN total_ttc ELSE 0 END), 0) AS INTEGER) AS avoirs,
-               CAST(COUNT(*) AS INTEGER) AS nb
-           FROM transactions WHERE session_id = ?"#,
-    )
-    .bind(&session_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let pays = sqlx::query_as::<_, PaymentTotalsRow>(
-        r#"SELECT
-               CAST(COALESCE(SUM(CASE WHEN p.method = 'ESPECES' THEN p.amount ELSE 0 END), 0) AS INTEGER) AS especes,
-               CAST(COALESCE(SUM(CASE WHEN p.method = 'CB'      THEN p.amount ELSE 0 END), 0) AS INTEGER) AS cb,
-               CAST(COALESCE(SUM(CASE WHEN p.method = 'CHEQUE'  THEN p.amount ELSE 0 END), 0) AS INTEGER) AS cheque,
-               CAST(COALESCE(SUM(CASE WHEN p.method NOT IN ('ESPECES','CB','CHEQUE') THEN p.amount ELSE 0 END), 0) AS INTEGER) AS autre
-           FROM payments p
-           INNER JOIN transactions t ON t.id = p.transaction_id
-           WHERE t.session_id = ? AND t.type = 'VENTE'"#,
-    )
-    .bind(&session_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let tva = sqlx::query_as::<_, TvaTotalsRow>(
-        r#"SELECT
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 2000 THEN tl.line_total_tva ELSE 0 END), 0) AS INTEGER) AS tva_2000,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 1000 THEN tl.line_total_tva ELSE 0 END), 0) AS INTEGER) AS tva_1000,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 550  THEN tl.line_total_tva ELSE 0 END), 0) AS INTEGER) AS tva_550,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 210  THEN tl.line_total_tva ELSE 0 END), 0) AS INTEGER) AS tva_210,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 0    THEN tl.line_total_tva ELSE 0 END), 0) AS INTEGER) AS tva_0,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 2000 THEN tl.line_total_ht  ELSE 0 END), 0) AS INTEGER) AS ht_2000,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 1000 THEN tl.line_total_ht  ELSE 0 END), 0) AS INTEGER) AS ht_1000,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 550  THEN tl.line_total_ht  ELSE 0 END), 0) AS INTEGER) AS ht_550,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 210  THEN tl.line_total_ht  ELSE 0 END), 0) AS INTEGER) AS ht_210,
-               CAST(COALESCE(SUM(CASE WHEN tl.tva_rate_pct = 0    THEN tl.line_total_ht  ELSE 0 END), 0) AS INTEGER) AS ht_0
-           FROM transaction_lines tl
-           INNER JOIN transactions t ON t.id = tl.transaction_id
-           WHERE t.session_id = ? AND t.type = 'VENTE'"#,
-    )
-    .bind(&session_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let t = crate::nf525::cloture::session_totaux(pool, &session_id).await?;
 
     Ok(RapportX {
         session,
-        total_ventes_ttc: totals.ventes,
-        total_avoirs_ttc: totals.avoirs,
-        net_ttc: totals.ventes - totals.avoirs,
-        nb_transactions: totals.nb,
-        pay_especes: pays.especes,
-        pay_cb: pays.cb,
-        pay_cheque: pays.cheque,
-        pay_autre: pays.autre,
-        tva_2000: tva.tva_2000,
-        tva_1000: tva.tva_1000,
-        tva_550: tva.tva_550,
-        tva_210: tva.tva_210,
-        tva_0: tva.tva_0,
-        ht_2000: tva.ht_2000,
-        ht_1000: tva.ht_1000,
-        ht_550: tva.ht_550,
-        ht_210: tva.ht_210,
-        ht_0: tva.ht_0,
+        total_ventes_ttc: t.ventes,
+        total_avoirs_ttc: t.avoirs,
+        net_ttc: t.net(),
+        nb_transactions: t.nb,
+        pay_especes: t.pay_especes,
+        pay_cb: t.pay_cb,
+        pay_cheque: t.pay_cheque,
+        pay_autre: t.pay_autre,
+        tva_2000: t.tva_2000,
+        tva_1000: t.tva_1000,
+        tva_550: t.tva_550,
+        tva_210: t.tva_210,
+        tva_0: t.tva_0,
+        ht_2000: t.ht_2000,
+        ht_1000: t.ht_1000,
+        ht_550: t.ht_550,
+        ht_210: t.ht_210,
+        ht_0: t.ht_0,
     })
 }

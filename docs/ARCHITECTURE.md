@@ -94,12 +94,13 @@ ldc/
     │   ├── db/
     │   │   ├── mod.rs          # DB init, PRAGMA foreign_keys=ON via SqliteConnectOptions
     │   │   ├── models/         # Rust structs with sqlx::FromRow + Serde
-    │   │   └── migrations/     # SQL files (001–018), applied in order at startup
+    │   │   └── migrations/     # SQL files (001–020), applied in order at startup
     │   ├── printer/
     │   │   └── escpos.rs       # EscPos byte builder — build_receipt, build_rapport, build_kitchen
     │   └── nf525/
-    │       ├── chain.rs        # SHA-256 hash engine + verify_chain()
-    │       └── grand_total.rs  # Grand totals computation (stub, used at Z-closure)
+    │       ├── chain.rs        # SHA-256 hash engine: transactions + clôtures, verify_chain(), verify_cloture_chain()
+    │       ├── cloture.rs      # Z-closure (cloturer_session), shared X/Z totals, verify_clotures()
+    │       └── grand_total.rs  # Perpetual grand totals computation
     └── Cargo.toml
 ```
 
@@ -217,8 +218,8 @@ transactions        (sequence_no, hash, previous_hash — NF525 chain)
 transaction_lines   (per-line TVA breakdown, immutable)
 payments            (method: ESPECES/CB/CHEQUE, cash_given, cash_change)
 journal_entries     (append-only audit log of all events)
-clotures            (Z-closure records with NF525 hash — future)
-grand_totals        (perpetual cumulative totals — future)
+clotures            (Z-closure records, own hash chain, anchored on the session's last transaction)
+grand_totals        (perpetual cumulative totals, one row per Z)
 settings            (key/value store: business_profile, …)
 rooms               (restaurant room definitions with sort_order)
 restaurant_tables   (name, seats, shape, status, pos_x, pos_y, room_id)
@@ -317,13 +318,27 @@ The first transaction hashes against the sentinel `"GENESIS"`. `verify_chain()` 
 
 **2. Append-only audit journal** (`journal_entries` table)
 
-Every significant event (`SESSION_OPEN`, `TRANSACTION_CREATED`) is written to an append-only journal with its own monotonic `sequence_no`.
+Every significant event (`SESSION_OPEN`, `TRANSACTION_CREATED`, `CLOTURE_Z`, `SESSION_CLOSE`) is written to an append-only journal with its own monotonic `sequence_no`.
 
 **3. Z-closure** (`commands/caisse.rs → close_session`)
 
-Closes the day, locks the session, and will generate a certified `cloture` record with its own NF525 hash (chained from the last transaction hash). Grand totals (`gt_ventes_ttc`, etc.) are perpetual — they cumulate across all sessions and can never be reset.
+`close_session` delegates to `nf525::cloture::cloturer_session`, which runs in **one SQL transaction** (all or nothing):
 
-> The full Z-closure with `clotures` table insertion and `grand_totals` update is scaffolded (`nf525/grand_total.rs`) but not yet wired into `close_session`. Current implementation marks the session CLOSED and returns the `RapportX` aggregates.
+1. Marks the session `CLOSED` (`WHERE status = 'OPEN'`, so a second closure fails).
+2. Computes the session totals with the same code as the X report (`session_totaux`): sales, credit notes (avoirs), cancellations, net, VAT and HT bases per rate (net of avoirs/annulations), payments per method (sales only).
+3. Computes the grand totals: previous grand totals + session totals. On the **first** Z ever, the baseline is every transaction outside this session, so sessions closed before Z-closure existed are included (this baseline is not itself hashed).
+4. Inserts the `clotures` row, chained to the previous Z, then its `grand_totals` row, sets `sessions.cloture_id`, and writes `CLOTURE_Z` + `SESSION_CLOSE` to the journal.
+
+Z hash payload (`chain.rs → hash_cloture`, contractual, `|`-separated):
+
+```
+sequence_no | session_id | last_tx_seq | last_tx_hash | ventes | avoirs | annulations | net
+| tva_2000 | tva_1000 | tva_550 | tva_210 | tva_0
+| pay_especes | pay_cb | pay_cheque | pay_autre
+| gt_ventes | gt_avoirs | gt_net | created_at | previous_hash
+```
+
+`last_tx_seq` / `last_tx_hash` identify the session's last transaction (`"NONE"` for an empty session); `previous_hash` is `"GENESIS"` for the first Z. `verify_chain` (Tauri command) checks the transaction chain, then the Z chain (`verify_clotures`), including that each closed session's last transaction is still the one frozen in its Z: a sale added to a closed session is detected.
 
 **4. FK integrity**
 
