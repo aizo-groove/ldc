@@ -93,6 +93,12 @@ function downloadJson(data: unknown, filename: string) {
  *  toute nouvelle production devient un duplicata (ex. 2e appui sur « Imprimer »). */
 const originalsProduced = new Set<string>();
 
+/** Vrai si la prochaine production de ce ticket sera un duplicata. */
+export function isDuplicata(job: PrintJob): boolean {
+  return job.type === "receipt"
+    && (job.duplicata === true || originalsProduced.has(job.transaction.transaction.id));
+}
+
 // ── Public hook ───────────────────────────────────────────────
 
 export function usePrint() {

@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS duplicatas (
     transaction_id TEXT    NOT NULL REFERENCES transactions(id),
     -- Numéro du duplicata pour ce ticket : 1, 2, 3…
     duplicata_no   INTEGER NOT NULL,
-    -- Support de réédition
-    canal TEXT NOT NULL CHECK (canal IN ('IMPRESSION', 'ECRAN', 'PDF', 'FIDO')),
+    -- Support de réédition (un canal FIDO viendra avec le contrat d'API, par migration)
+    canal TEXT NOT NULL CHECK (canal IN ('IMPRESSION', 'ECRAN', 'PDF')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 
     UNIQUE(transaction_id, duplicata_no)

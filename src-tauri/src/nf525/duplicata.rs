@@ -1,12 +1,12 @@
 /// Duplicatas de tickets (NF525).
 ///
-/// Toute réédition d'un ticket déjà émis (réimpression, affichage écran, PDF,
-/// envoi à FIDO) est un duplicata : il reçoit un numéro propre au ticket et
+/// Toute réédition d'un ticket déjà émis (réimpression, affichage écran, PDF)
+/// est un duplicata : il reçoit un numéro propre au ticket et
 /// est tracé dans le journal. Le ticket original et sa chaîne ne changent pas.
 use serde::Serialize;
 use sqlx::SqlitePool;
 
-pub const CANAUX: [&str; 4] = ["IMPRESSION", "ECRAN", "PDF", "FIDO"];
+pub const CANAUX: [&str; 3] = ["IMPRESSION", "ECRAN", "PDF"];
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct Duplicata {

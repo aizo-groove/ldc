@@ -57,7 +57,7 @@ export interface Payment {
   created_at: string;
 }
 
-export type DuplicataCanal = "IMPRESSION" | "ECRAN" | "PDF" | "FIDO";
+export type DuplicataCanal = "IMPRESSION" | "ECRAN" | "PDF";
 
 /** Réédition d'un ticket, numérotée et tracée au journal (NF525). */
 export interface Duplicata {
