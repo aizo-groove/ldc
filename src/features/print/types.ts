@@ -2,7 +2,15 @@ import type { TransactionFull } from "@/types/transaction";
 import type { RapportX } from "@/types/session";
 
 export type PrintJob =
-  | { type: "receipt"; transaction: TransactionFull; loyaltyQr?: string | null }
+  | {
+      type: "receipt";
+      transaction: TransactionFull;
+      loyaltyQr?: string | null;
+      /** Réédition d'un ticket déjà émis : enregistrée comme duplicata NF525. */
+      duplicata?: boolean;
+      /** Numéro attribué au duplicata, renseigné au moment de l'impression. */
+      duplicataNo?: number;
+    }
   | { type: "rapport"; rapport: RapportX };
 
 // ── ESC/POS input shapes (mirror of Rust structs) ─────────────
@@ -29,6 +37,7 @@ export interface EscPosReceiptDoc {
   hash:           string;
   is_avoir:       boolean;
   loyalty_qr:     string | null;
+  duplicata_no:   number | null;
 }
 
 export interface EscPosRapportDoc {

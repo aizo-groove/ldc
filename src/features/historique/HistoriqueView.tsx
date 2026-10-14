@@ -305,7 +305,7 @@ export function HistoriqueView() {
               ) : !detail ? (
                 <EmptyDetail />
               ) : (
-                <DetailPanel detail={detail} onPrint={() => usePrintStore.getState().trigger({ type: "receipt", transaction: detail })} />
+                <DetailPanel detail={detail} onPrint={() => usePrintStore.getState().trigger({ type: "receipt", transaction: detail, duplicata: true })} />
               )}
             </section>
           </>

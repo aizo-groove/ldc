@@ -172,6 +172,14 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     p.align_left();
     p.sep('-');
 
+    // Réédition : mention obligatoire NF525
+    if let Some(no) = doc.duplicata_no {
+        p.bold(true);
+        p.centered(&format!("*** DUPLICATA N°{} ***", no));
+        p.bold(false);
+        p.sep('-');
+    }
+
     // Type badge
     if doc.is_avoir {
         p.bold(true);

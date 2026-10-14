@@ -108,6 +108,7 @@ function ReceiptPrint({ job, store }: { job: Extract<PrintJob, { type: "receipt"
         {store.tva_number && <div>TVA : {store.tva_number}</div>}
         <div style={{ marginTop: "6px" }}>{fmtDate(tx.created_at)}</div>
         <div>Ticket #{tx.sequence_no.toString().padStart(5, "0")}</div>
+        {job.duplicataNo != null && <div className="avoir-badge">*** DUPLICATA N°{job.duplicataNo} ***</div>}
         {isAvoir && <div className="avoir-badge">*** AVOIR ***</div>}
       </div>
 

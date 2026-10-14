@@ -98,7 +98,8 @@ export function PrintModal() {
     }
   };
 
-  const showFidoQrButton = job.type === "receipt";
+  // Pas de QR fidélité sur une réédition : il permettrait de créditer deux fois.
+  const showFidoQrButton = job.type === "receipt" && !job.duplicata;
 
   const busy   = status === "printing";
   const showActions = status === "idle" || status === "error";
