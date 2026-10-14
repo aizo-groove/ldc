@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Printer, FileJson, FileText, X, Loader2, AlertTriangle, CheckCircle2, Monitor, ChefHat, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePrintStore } from "./store";
-import { executePrint } from "./usePrint";
+import { executePrint, isDuplicata } from "./usePrint";
 import { useSessionStore } from "@/features/session/store";
 import { listPrinters, getSetting, generateLoyaltyQr } from "@/lib/tauri";
 import type { Printer as PrinterModel } from "@/types/printer";
@@ -98,7 +98,8 @@ export function PrintModal() {
     }
   };
 
-  const showFidoQrButton = job.type === "receipt";
+  // Pas de QR fidélité sur une réédition : il permettrait de créditer deux fois.
+  const showFidoQrButton = job.type === "receipt" && !isDuplicata(job);
 
   const busy   = status === "printing";
   const showActions = status === "idle" || status === "error";

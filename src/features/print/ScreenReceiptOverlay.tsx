@@ -88,6 +88,9 @@ function ReceiptContent({ job }: { job: Extract<PrintJob, { type: "receipt" }> }
       <div className="text-center space-y-0.5">
         <p className="font-black text-base font-sans">{tx.sequence_no ? `Ticket #${tx.sequence_no.toString().padStart(5, "0")}` : "Ticket"}</p>
         <p className="text-xs text-zinc-500">{fmtDate(tx.created_at)}</p>
+        {job.duplicataNo != null && (
+          <p className="mt-1 font-bold text-xs tracking-widest uppercase">★ DUPLICATA N°{job.duplicataNo} ★</p>
+        )}
         {isAvoir && (
           <p className="mt-1 font-bold text-red-600 text-xs tracking-widest uppercase">★ AVOIR ★</p>
         )}

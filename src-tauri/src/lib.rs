@@ -70,6 +70,7 @@ pub fn run() {
             commands::transactions::list_transactions,
             commands::transactions::list_recent_transactions,
             commands::transactions::verify_chain,
+            commands::transactions::create_duplicata,
             // Journal
             commands::journal::list_journal_entries,
             // Open orders (tickets table)

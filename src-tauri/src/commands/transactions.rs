@@ -366,3 +366,13 @@ pub async fn verify_chain(state: State<'_, AppState>) -> Result<usize, String> {
 
     Ok(count)
 }
+
+/// Enregistre un duplicata (réédition) d'un ticket et le trace au journal NF525.
+#[tauri::command]
+pub async fn create_duplicata(
+    state: State<'_, AppState>,
+    transaction_id: String,
+    canal: String,
+) -> Result<crate::nf525::duplicata::Duplicata, String> {
+    crate::nf525::duplicata::emettre_duplicata(state.db.as_ref(), &transaction_id, &canal).await
+}

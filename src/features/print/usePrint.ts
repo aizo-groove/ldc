@@ -2,7 +2,7 @@ import { usePrintStore } from "./store";
 import type { PrintJob, EscPosReceiptDoc, EscPosRapportDoc } from "./types";
 import type { TransactionFull } from "@/types/transaction";
 import type { RapportX } from "@/types/session";
-import { printReceiptEscpos, printRapportEscpos, getSetting, generateLoyaltyQr, type QrLineItem } from "@/lib/tauri";
+import { printReceiptEscpos, printRapportEscpos, getSetting, generateLoyaltyQr, createDuplicata, type QrLineItem } from "@/lib/tauri";
 
 // ── Format helpers ────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ async function getStoreName(): Promise<string> {
   }
 }
 
-function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: string, loyaltyQr?: string | null): EscPosReceiptDoc {
+function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: string, loyaltyQr?: string | null, duplicataNo?: number): EscPosReceiptDoc {
   const { transaction, lines, payments } = tx;
   const tvaMap = new Map<number, { tva: number; ht: number }>();
   for (const l of lines) {
@@ -46,6 +46,7 @@ function buildReceiptDoc(tx: TransactionFull, storeName: string, cashierName?: s
     hash:           transaction.hash,
     is_avoir:       transaction.type === "AVOIR",
     loyalty_qr:     loyaltyQr ?? null,
+    duplicata_no:   duplicataNo ?? null,
   };
 }
 
@@ -86,6 +87,18 @@ function downloadJson(data: unknown, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// ── Originaux déjà produits ───────────────────────────────────
+
+/** Tickets dont l'original a déjà été produit pendant cette exécution :
+ *  toute nouvelle production devient un duplicata (ex. 2e appui sur « Imprimer »). */
+const originalsProduced = new Set<string>();
+
+/** Vrai si la prochaine production de ce ticket sera un duplicata. */
+export function isDuplicata(job: PrintJob): boolean {
+  return job.type === "receipt"
+    && (job.duplicata === true || originalsProduced.has(job.transaction.transaction.id));
+}
+
 // ── Public hook ───────────────────────────────────────────────
 
 export function usePrint() {
@@ -104,13 +117,25 @@ export async function executePrint(
 
   if (job.type === "receipt") {
     const tx = job.transaction;
+
+    if (originalsProduced.has(tx.transaction.id)) {
+      job = { ...job, duplicata: true };
+    }
+
+    // Réédition : enregistrer le duplicata (numéro + journal) avant de le produire.
+    if (job.duplicata && format !== "json") {
+      const canal = format === "escpos" ? "IMPRESSION" : format === "screen" ? "ECRAN" : "PDF";
+      const d = await createDuplicata(tx.transaction.id, canal);
+      job = { ...job, duplicataNo: d.duplicata_no };
+    }
     const label = `ticket-${tx.transaction.sequence_no.toString().padStart(5, "0")}`;
 
     switch (format) {
       case "escpos": {
-        // Reuse QR generated at payment time; regenerate only if not provided
-        let loyaltyQr = precomputedLoyaltyQr ?? null;
-        if (loyaltyQr === undefined || loyaltyQr === null) {
+        // Reuse QR generated at payment time; regenerate only if not provided.
+        // Jamais de QR fidélité sur un duplicata : il permettrait de créditer deux fois.
+        let loyaltyQr = job.duplicata ? null : precomputedLoyaltyQr ?? null;
+        if (!job.duplicata && loyaltyQr === null) {
           const taxCents = tx.transaction.total_ttc - tx.transaction.total_ht;
           const qrItems: QrLineItem[] = tx.lines.map((l) => ({
             name:           l.product_name,
@@ -124,7 +149,7 @@ export async function executePrint(
             qrItems,
           ).then((r) => r?.payload_b64url ?? null).catch(() => null);
         }
-        const doc = buildReceiptDoc(tx, storeName, cashierName, loyaltyQr);
+        const doc = buildReceiptDoc(tx, storeName, cashierName, loyaltyQr, job.duplicataNo);
         await printReceiptEscpos(doc);
         break;
       }
@@ -144,6 +169,7 @@ export async function executePrint(
         break;
       }
     }
+    if (format !== "json") originalsProduced.add(tx.transaction.id);
   } else {
     const rapport = job.rapport;
     const label   = `rapport-z-${rapport.session.opened_at.slice(0, 10)}`;
