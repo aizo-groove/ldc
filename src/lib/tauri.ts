@@ -11,6 +11,8 @@ import type { Category, Product, TvaRate } from "@/types/catalogue";
 import type { LoyaltyConfig, LoyaltyProgram, LoyaltyProgramInput, LoyaltyQrResult, RctInfo } from "@/types/loyalty";
 import type {
   CartLineInput,
+  Duplicata,
+  DuplicataCanal,
   PaymentInput,
   Transaction,
   TransactionFull,
@@ -96,6 +98,9 @@ export const listRecentTransactions = (limit: number): Promise<Transaction[]> =>
   invoke("list_recent_transactions", { limit });
 
 export const verifyChain = (): Promise<number> => invoke("verify_chain");
+
+export const createDuplicata = (transactionId: string, canal: DuplicataCanal): Promise<Duplicata> =>
+  invoke("create_duplicata", { transactionId, canal });
 
 // ── Open orders (tickets table) ───────────────────────────
 

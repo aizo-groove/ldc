@@ -46,6 +46,9 @@ pub struct ReceiptDoc {
     pub hash: String,
     pub is_avoir: bool,
     pub loyalty_qr: Option<String>, // base64url-encoded binary QR payload
+    /// Numéro de duplicata si le ticket est une réédition (NF525).
+    #[serde(default)]
+    pub duplicata_no: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

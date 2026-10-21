@@ -12,15 +12,43 @@ pub fn paper_cols(mm: u8) -> usize {
     }
 }
 
-/// UTF-8 → PC858 (Latin-1 range passthrough, € → 0xD5)
+/// PC858 pour U+00A0–U+00FF (indice = point de code − 0xA0).
+/// Les accents n'ont pas la même position qu'en Latin-1 : é = 0x82, ° = 0xF8.
+const LATIN1_TO_PC858: [u8; 96] = [
+    0xFF, 0xAD, 0xBD, 0x9C, 0xCF, 0xBE, 0xDD, 0xF5, // U+00A0–U+00A7
+    0xF9, 0xB8, 0xA6, 0xAE, 0xAA, 0xF0, 0xA9, 0xEE, // U+00A8–U+00AF
+    0xF8, 0xF1, 0xFD, 0xFC, 0xEF, 0xE6, 0xF4, 0xFA, // U+00B0–U+00B7
+    0xF7, 0xFB, 0xA7, 0xAF, 0xAC, 0xAB, 0xF3, 0xA8, // U+00B8–U+00BF
+    0xB7, 0xB5, 0xB6, 0xC7, 0x8E, 0x8F, 0x92, 0x80, // U+00C0–U+00C7
+    0xD4, 0x90, 0xD2, 0xD3, 0xDE, 0xD6, 0xD7, 0xD8, // U+00C8–U+00CF
+    0xD1, 0xA5, 0xE3, 0xE0, 0xE2, 0xE5, 0x99, 0x9E, // U+00D0–U+00D7
+    0x9D, 0xEB, 0xE9, 0xEA, 0x9A, 0xED, 0xE8, 0xE1, // U+00D8–U+00DF
+    0x85, 0xA0, 0x83, 0xC6, 0x84, 0x86, 0x91, 0x87, // U+00E0–U+00E7
+    0x8A, 0x82, 0x88, 0x89, 0x8D, 0xA1, 0x8C, 0x8B, // U+00E8–U+00EF
+    0xD0, 0xA4, 0x95, 0xA2, 0x93, 0xE4, 0x94, 0xF6, // U+00F0–U+00F7
+    0x9B, 0x97, 0xA3, 0x96, 0x81, 0xEC, 0xE7, 0x98, // U+00F8–U+00FF
+];
+
+/// UTF-8 → PC858. Les caractères absents de PC858 sont remplacés par un
+/// équivalent ASCII (guillemets typographiques, tirets, œ…) ou par `?`.
 fn to_pc858(s: &str) -> Vec<u8> {
-    s.chars()
-        .map(|c| match c {
-            '€' => 0xD5u8,
-            c if (c as u32) < 256 => c as u8,
-            _ => b'?',
-        })
-        .collect()
+    let mut out = Vec::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            c if c.is_ascii() => out.push(c as u8),
+            '\u{A0}'..='\u{FF}' => out.push(LATIN1_TO_PC858[c as usize - 0xA0]),
+            '€' => out.push(0xD5),
+            '’' | '‘' => out.push(b'\''),
+            '“' | '”' => out.push(b'"'),
+            '–' | '—' => out.push(b'-'),
+            '•' => out.push(b'*'),
+            '…' => out.extend_from_slice(b"..."),
+            'œ' => out.extend_from_slice(b"oe"),
+            'Œ' => out.extend_from_slice(b"OE"),
+            _ => out.push(b'?'),
+        }
+    }
+    out
 }
 
 /// Centimes → "1 234,56"
@@ -171,6 +199,14 @@ pub fn build_receipt(doc: &ReceiptDoc, paper_mm: u8) -> Vec<u8> {
     }
     p.align_left();
     p.sep('-');
+
+    // Réédition : mention obligatoire NF525
+    if let Some(no) = doc.duplicata_no {
+        p.bold(true);
+        p.centered(&format!("*** DUPLICATA N°{} ***", no));
+        p.bold(false);
+        p.sep('-');
+    }
 
     // Type badge
     if doc.is_avoir {
@@ -419,4 +455,20 @@ pub fn build_kitchen(doc: &KitchenDoc, paper_mm: u8) -> Vec<u8> {
     p.lf();
     p.cut();
     p.build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::to_pc858;
+
+    #[test]
+    fn pc858_accents_et_symboles() {
+        assert_eq!(to_pc858("Café"), vec![b'C', b'a', b'f', 0x82]);
+        assert_eq!(to_pc858("N°1 €"), vec![b'N', 0xF8, b'1', b' ', 0xD5]);
+        assert_eq!(
+            to_pc858("àçèêîôù"),
+            vec![0x85, 0x87, 0x8A, 0x88, 0x8C, 0x93, 0x97]
+        );
+        assert_eq!(to_pc858("Œuf’s"), b"OEuf's".to_vec());
+    }
 }
