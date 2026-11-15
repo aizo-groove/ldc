@@ -20,6 +20,9 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
 
+  /** Panier de la Vente mis de côté pendant le règlement d'une table. */
+  parked: CartItem[] | null;
+
   /** Ajoute un produit (incrémente si déjà présent). tvaRatePct en centièmes (ex: 2000 = 20%). */
   addProduct: (product: Product, categoryName: string, tvaRatePct: number) => void;
 
@@ -38,6 +41,12 @@ interface CartStore {
   /** Charge les lignes d'un ticket ouvert dans le panier */
   loadFromOrderLines: (lines: OpenOrderLine[]) => void;
 
+  /** Met de côté le panier de la Vente (et le vide) avant de régler une table. */
+  park: () => void;
+
+  /** Restaure le panier de la Vente mis de côté (remplace le panier courant). */
+  restoreParked: () => void;
+
   // Calculés
   totalTtc: () => number;
   totalHt: () => number;
@@ -49,6 +58,7 @@ let lineCounter = 0;
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
+  parked: null,
 
   addProduct: (product, categoryName, tvaRatePct) => {
     set((state) => {
@@ -111,6 +121,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     })),
 
   clear: () => set({ items: [] }),
+
+  // Si un panier est déjà de côté (2e règlement de table), on ne l'écrase pas.
+  park: () => set((s) => (s.parked ? { items: [] } : { parked: s.items, items: [] })),
+
+  restoreParked: () => set((s) => ({ items: s.parked ?? [], parked: null })),
 
   loadFromOrderLines: (lines) =>
     set({

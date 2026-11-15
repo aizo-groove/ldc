@@ -39,7 +39,7 @@ export function TableTicketPanel({ table, onClose, onPay }: TableTicketPanelProp
     useCatalogueStore();
   const { session } = useSessionStore();
   const loadFromOrderLines = useCartStore((s) => s.loadFromOrderLines);
-  const clearCart          = useCartStore((s) => s.clear);
+  const parkCart           = useCartStore((s) => s.park);
 
   useEffect(() => {
     if (products.length === 0) loadCatalogue();
@@ -199,7 +199,8 @@ export function TableTicketPanel({ table, onClose, onPay }: TableTicketPanelProp
       setError(String(e));
       return;
     }
-    clearCart();
+    // Le panier de la Vente est mis de côté, restauré après le règlement de la table
+    parkCart();
     loadFromOrderLines(items.map((i) => ({
       id: "", order_id: "", line_no: 0,
       product_id: i.product_id,

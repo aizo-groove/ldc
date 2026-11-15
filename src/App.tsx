@@ -189,6 +189,7 @@ export default function App() {
       clearCart();
 
       if (tableContext) {
+        useCartStore.getState().restoreParked();
         await deleteTableOrder(tableContext.tableId);
         await updateTableStatus(tableContext.tableId, "libre");
         useTablesStore.getState().load();
@@ -300,7 +301,15 @@ export default function App() {
         <PaymentView
           totalTtc={screen.totalTtc}
           orderNumber={screen.orderNumber}
-          onBack={() => { setPaymentError(null); setScreen({ type: "caisse" }); }}
+          onBack={() => {
+            setPaymentError(null);
+            // Retour depuis le règlement d'une table : rendre son panier à la Vente
+            if (tableContext) {
+              useCartStore.getState().restoreParked();
+              setTableContext(null);
+            }
+            setScreen({ type: "caisse" });
+          }}
           onValidate={validatePayment}
           error={paymentError}
         />
