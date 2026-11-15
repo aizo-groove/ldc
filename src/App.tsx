@@ -152,7 +152,9 @@ export default function App() {
 
   const openPaymentFromTable = (tableId: string) => {
     setTableContext({ tableId });
-    setScreen({ type: "paiement", orderNumber: ++orderCounter, totalTtc });
+    // Le panier vient d'être rempli depuis la table dans ce même clic : lire le
+    // total à jour dans le store, pas la valeur du dernier rendu (périmée).
+    setScreen({ type: "paiement", orderNumber: ++orderCounter, totalTtc: useCartStore.getState().totalTtc() });
   };
 
   const validatePayment = async (payments: PaymentInput[], groups: PersonGroup[]): Promise<void> => {

@@ -15,6 +15,8 @@ import type {
 } from "@/types/transaction";
 import type { JournalEntry } from "@/lib/tauri";
 import type { Printer } from "@/types/printer";
+import type { RestaurantTable, Room, TableShape } from "@/types/table";
+import type { OpenOrder, OpenOrderFull, OpenOrderLine, OpenOrderLineInput } from "@/types/open_order";
 import { MOCK_CATEGORIES, MOCK_PRODUCTS, MOCK_TVA_RATES } from "@/lib/mockData";
 import { version } from "../../package.json";
 
@@ -29,8 +31,8 @@ const uuid = () => crypto.randomUUID();
 
 const state = {
   settings: new Map<string, string>([
-    ["store_name", "Café de la Démo"],
-    ["business_profile", "cafe"],
+    ["store_name", "Bistrot de la Démo"],
+    ["business_profile", "restaurant"],
     // Pas de modal « Nouveautés » ni d'assistant au démarrage
     ["last_seen_version", DEMO_VERSION],
   ]),
@@ -54,7 +56,76 @@ const state = {
       paper_mm: 80, roles: "receipt,kitchen", sort_order: 0, created_at: now(),
     },
   ] as Printer[],
+  rooms: [
+    { id: "room-salle", name: "Salle", color: null, sort_order: 0 },
+    { id: "room-terrasse", name: "Terrasse", color: null, sort_order: 1 },
+  ] as Room[],
+  tables: [
+    table("t1", "room-salle", "T1", 4, "square", 80, 80),
+    table("t2", "room-salle", "T2", 2, "round", 280, 80),
+    table("t3", "room-salle", "T3", 2, "round", 440, 80),
+    table("t4", "room-salle", "T4", 6, "rect", 80, 260),
+    table("t5", "room-salle", "T5", 4, "square", 340, 260),
+    table("t6", "room-terrasse", "E1", 2, "round", 80, 400),
+    table("t7", "room-terrasse", "E2", 2, "round", 240, 400),
+    table("t8", "room-terrasse", "E3", 4, "square", 400, 400),
+  ] as RestaurantTable[],
+  orders: new Map<string, OpenOrderFull>(),
 };
+
+function table(
+  id: string, room_id: string, name: string, seats: number, shape: TableShape, pos_x: number, pos_y: number,
+): RestaurantTable {
+  return { id, room_id, name, seats, shape, status: "libre", pos_x, pos_y, sort_order: 0 };
+}
+
+// ── Tickets de table ──────────────────────────────────────────
+
+function saveTableOrder(a: Args): OpenOrderFull {
+  const tableId = a.tableId as string;
+  const existing = state.orders.get(tableId)?.order;
+  const order: OpenOrder = {
+    id: existing?.id ?? uuid(),
+    table_id: tableId,
+    session_id: (a.sessionId as string | null) ?? null,
+    note: (a.note as string | null) ?? null,
+    covers: a.covers as number,
+    sent_to_kitchen: existing?.sent_to_kitchen ?? 0,
+    created_at: existing?.created_at ?? now(),
+    updated_at: now(),
+  };
+  const lines: OpenOrderLine[] = (a.lines as OpenOrderLineInput[]).map((l, i) => ({
+    ...l,
+    id: uuid(),
+    order_id: order.id,
+    line_no: i + 1,
+  }));
+  const full = { order, lines };
+  state.orders.set(tableId, full);
+  return full;
+}
+
+// Une table déjà occupée, envoyée en cuisine, pour montrer le plan de salle en service
+{
+  const byId = (id: string) => state.products.find((p) => p.id === id)!;
+  const line = (id: string, quantity: number): OpenOrderLineInput => {
+    const p = byId(id);
+    const rate = state.tvaRates.find((t) => t.id === p.tva_rate_id)?.rate_pct ?? 0;
+    return {
+      product_id: p.id, product_name: p.name, product_sku: p.sku, quantity,
+      unit_price_ttc: p.price_ttc, unit_price_ht: p.price_ht, tva_rate_pct: rate,
+      discount_ttc: 0, sent_qty: quantity,
+    };
+  };
+  const pizza = state.products.find((p) => /pizza/i.test(p.name))?.id;
+  const burger = state.products.find((p) => /burger/i.test(p.name))?.id;
+  const ipa = state.products.find((p) => /ipa/i.test(p.name))?.id;
+  if (pizza && burger && ipa) {
+    saveTableOrder({ tableId: "t1", sessionId: null, covers: 2, note: null, lines: [line(pizza, 1), line(burger, 1), line(ipa, 2)] });
+    state.orders.get("t1")!.order.sent_to_kitchen = 1;
+    state.tables[0].status = "occupe";
+  }
+}
 
 function journal(event_type: string, entity_type: string, entity_id: string, payload: unknown) {
   state.journal.push({
@@ -322,13 +393,64 @@ export async function handle(cmd: string, payload?: unknown): Promise<unknown> {
     case "update_setting": state.settings.set(a.key as string, a.value as string); return null;
     case "get_db_path": return "Démo : aucune base de données, rien n'est enregistré";
 
-    // Tables : pas de plan de salle dans le profil démo (Café)
-    case "list_rooms":
-    case "list_tables":
-    case "list_open_orders":
-      return [];
     case "list_printers": return state.printers;
-    case "get_table_order": return null;
+
+    // Plan de salle
+    case "list_rooms": return state.rooms;
+    case "create_room": {
+      const room: Room = { id: uuid(), name: a.name as string, color: null, sort_order: state.rooms.length };
+      state.rooms.push(room);
+      return room;
+    }
+    case "update_room": {
+      const room = state.rooms.find((r) => r.id === a.id);
+      if (!room) throw "Salle introuvable";
+      room.name = a.name as string;
+      return room;
+    }
+    case "delete_room":
+      state.rooms = state.rooms.filter((r) => r.id !== a.id);
+      state.tables = state.tables.filter((t) => t.room_id !== a.id);
+      return null;
+    case "list_tables": return state.tables;
+    case "create_table": {
+      const t = { ...(a.table as RestaurantTable) };
+      if (!t.id) t.id = uuid();
+      state.tables.push(t);
+      return t;
+    }
+    case "update_table": {
+      const t = a.table as RestaurantTable;
+      state.tables = state.tables.map((x) => (x.id === t.id ? { ...t } : x));
+      return t;
+    }
+    case "update_table_status": {
+      const t = state.tables.find((x) => x.id === a.tableId);
+      if (t) t.status = a.status as RestaurantTable["status"];
+      return null;
+    }
+    case "update_table_position": {
+      const t = state.tables.find((x) => x.id === a.tableId);
+      if (t) Object.assign(t, { pos_x: a.posX, pos_y: a.posY });
+      return null;
+    }
+    case "delete_table":
+      state.tables = state.tables.filter((t) => t.id !== a.tableId);
+      state.orders.delete(a.tableId as string);
+      return null;
+
+    // Tickets de table
+    case "list_open_orders": return [...state.orders.values()].map((o) => o.order);
+    case "get_table_order": return state.orders.get(a.tableId as string) ?? null;
+    case "save_table_order": return saveTableOrder(a);
+    case "mark_sent_to_kitchen": {
+      const o = state.orders.get(a.tableId as string);
+      if (o) o.order.sent_to_kitchen = 1;
+      return null;
+    }
+    case "delete_table_order": state.orders.delete(a.tableId as string); return null;
+    // Bon cuisine : accepté sans impression (pas d'imprimante dans un navigateur)
+    case "print_kitchen_escpos": return null;
 
     // Fidélité : module désactivé
     case "get_loyalty_config":
