@@ -3,6 +3,7 @@ pub mod cashiers;
 pub mod catalogue;
 pub mod compliance;
 pub mod dev;
+pub mod held_orders;
 pub mod journal;
 pub mod loyalty;
 pub mod open_orders;

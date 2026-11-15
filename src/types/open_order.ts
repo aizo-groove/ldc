@@ -7,6 +7,10 @@ export interface OpenOrder {
   sent_to_kitchen: number;
   created_at: string;
   updated_at: string;
+  /** Notes en attente : numéro du jour (null pour un ticket de table) */
+  held_no: number | null;
+  /** Notes en attente : libellé libre */
+  label: string | null;
 }
 
 export interface OpenOrderLine {

@@ -10,6 +10,10 @@ pub struct OpenOrder {
     pub sent_to_kitchen: i64,
     pub created_at: String,
     pub updated_at: String,
+    /// Notes en attente : numéro du jour (NULL pour un ticket de table)
+    pub held_no: Option<i64>,
+    /// Notes en attente : libellé libre
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
