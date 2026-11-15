@@ -1,216 +1,129 @@
-# LDC — Logiciel de Caisse
+# LDC — Logiciel de caisse libre
 
-Un logiciel de caisse open-source pour le marché français — restaurants, cafés, commerces de proximité. Fonctionne **entièrement hors ligne** comme application native de bureau (macOS, Windows) grâce à Tauri v2 + React + Rust.
+[![CI](https://github.com/aizo-groove/ldc/actions/workflows/ci.yml/badge.svg)](https://github.com/aizo-groove/ldc/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/release/aizo-groove/ldc?label=version)](https://github.com/aizo-groove/ldc/releases/latest)
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+
+Logiciel de caisse gratuit et libre pour les petits commerces français : cafés, restaurants, commerces de proximité. Application de bureau (macOS, Windows) qui fonctionne **entièrement hors ligne**, avec les données stockées localement chez le commerçant.
+
+**[Essayer la démo en ligne](https://ldc-rust.vercel.app)** · **[Télécharger](https://github.com/aizo-groove/ldc/releases/latest)** · [Site du projet](https://ldc-web.vercel.app)
+
+![Écran de vente](docs/images/01-vente.png)
+
+> **Statut : bêta.** LDC implémente les mécanismes de sécurisation demandés par la norme NF525, mais **n'est pas certifié** par un organisme accrédité. Voir [Conformité NF525](#conformité-nf525).
 
 ---
+
+## Pourquoi LDC
+
+Les logiciels de caisse du marché coûtent souvent 50 à 200 € par mois, dépendent d'une connexion internet et gardent les données du commerçant sur leurs serveurs. Pour un petit commerce, c'est une charge fixe de plus et une dépendance.
+
+LDC part du principe inverse :
+- **Gratuit et libre** (licence MIT), sans fonctionnalité réservée à une version payante.
+- **Hors ligne d'abord** : l'encaissement ne dépend jamais du réseau.
+- **Données locales** : une base SQLite sur le poste du commerçant, qu'il peut sauvegarder et exporter.
+- **Pensé pour la France** : TVA par taux, titres-restaurant, exigences NF525.
+
+Le périmètre fonctionnel s'appuie sur une analyse terrain des logiciels existants et des besoins de commerces indépendants.
 
 ## Fonctionnalités
 
-**Vente & paiement**
-- Catalogue produits avec catégories, taux de TVA et suivi de stock optionnel
-- Panier avec remises par ligne, addition partagée entre plusieurs personnes
-- Moyens de paiement : CB, espèces, chèque, virement, avoir, titre-restaurant, autre
-- Vérification du stock à l'ajout avec message d'alerte explicite
-- Partage de l'addition par nombre de parts égales ou par personne
+**Vente**
+- Catalogue avec catégories, taux de TVA et suivi de stock optionnel
+- Paiements CB, espèces (rendu monnaie), chèque, titre-restaurant, paiements mixtes et addition partagée
+- **Notes en attente** : mettre un client de côté en un clic, le reprendre en un clic
 
-**Gestion des tables** *(profils restaurant/café)*
-- Plan de salle visuel avec positionnement des tables par glisser-déposer
-- Support multi-salles
-- Tickets ouverts par table — ajout d'articles, sauvegarde en cours de service, reprise
-- Cycle de statut : libre → occupé → addition
+**Restaurant**
+- Plan de salle multi-salles, tables par glisser-déposer
+- Tickets de table avec couverts, notes de commande et envoi en cuisine (ticket « complément » pour les ajouts)
 
-**Caissiers & sessions**
-- Écran de connexion multi-caissiers avec PIN à 4 chiffres optionnel
-- Rôle responsable avec gestion des caissiers protégée par PIN (par défaut : `0000`)
-- Sessions tracent le caissier actif ; pensé pour un usage mono-poste
+| Plan de salle | Ticket de table |
+|---|---|
+| ![Plan de salle](docs/images/02-plan-de-salle.png) | ![Ticket de table](docs/images/03-ticket-table.png) |
 
-**Conformité fiscale NF525**
-- Chaîne de hachage SHA-256 sur toutes les transactions
-- Journal d'audit immuable (append-only)
-- Rapport X par session avec ventilation TVA par taux
-- Clôture Z avec grands totaux cumulés non réinitialisables
-- Vérification de la chaîne en un clic depuis les paramètres
-- Export complet de l'archive fiscale JSON (à conserver 6 ans)
-- Attestation de conformité pré-remplie exportable en HTML/PDF
+**Clôture et conformité**
+- Rapport X et clôture Z avec ventilation de la TVA et réconciliation des paiements
+- Chaîne de hachage des transactions et des clôtures, grands totaux perpétuels, journal d'audit
+- Duplicatas numérotés et tracés, export de l'archive fiscale
 
-**Gestion du catalogue (Inventaire)**
-- Création, modification, désactivation logique des produits
-- Suivi de stock par produit avec visibilité des ruptures
-- Attribution du taux de TVA par produit
+| Paiement | Clôture Z |
+|---|---|
+| ![Paiement](docs/images/04-paiement.png) | ![Clôture Z](docs/images/05-cloture.png) |
 
-**Appareils (Matériel)**
-- Imprimante thermique TCP/IP (58 ou 80 mm)
-- Tiroir-caisse via impulsion ESC/POS (pin 2 ou pin 5), ouverture automatique configurable
-- Scanner de codes-barres USB HID (plug & play)
-- Terminal de paiement CB (référence)
-- Écran client sur second moniteur — affiche le panier et le total en temps réel
+**Matériel et poste**
+- Imprimante thermique ESC/POS en réseau (58 ou 80 mm), tiroir-caisse, douchette USB
+- Écran client sur un second moniteur
+- Multi-caissiers avec code PIN, profils Restaurant / Café / Commerce
+- Assistant de démarrage, visite guidée, thème clair et sombre, mises à jour automatiques
 
-**Profils commerciaux**
-- Restaurant, Café/Bar, Commerce — active ou masque les fonctionnalités selon le profil
+## Conformité NF525
 
-**Onboarding**
-- Assistant de premier lancement en 5 étapes (profil, établissement, imprimante)
-- Déclencheur automatique : `store_name` vide ET aucun caissier en base
-- Données configurées directement dans SQLite — pas d'écran intermédiaire
+LDC implémente les mécanismes attendus d'un logiciel de caisse sécurisé :
 
-**Visite guidée interactive**
-- Tour interactif proposé à la fin de l'onboarding (opt-in, coché par défaut)
-- 7 à 8 étapes avec spotlight et popover : catalogue, panier, paiement, tables, historique, inventaire, paramètres
-- Relançable à tout moment depuis Paramètres → À propos
-- Propulsé par [driver.js](https://driverjs.com)
+| Exigence | Implémentation |
+|---|---|
+| Inaltérabilité | Chaque transaction est chaînée à la précédente par une empreinte SHA-256 ; les tables fiscales sont en ajout seul |
+| Clôtures | Clôture Z chaînée aux précédentes et ancrée sur la dernière transaction de la session |
+| Cumuls | Grands totaux perpétuels, jamais remis à zéro |
+| Traçabilité | Journal d'audit des événements, duplicatas numérotés |
+| Vérification | Contrôle de toute la chaîne en un clic, avec le premier maillon cassé signalé |
+| Conservation | Export complet de l'archive fiscale (à conserver 6 ans) |
 
-**Expérience**
-- Thème sombre/clair (Material You)
-- Horloge en temps réel dans la barre supérieure
-- Mise à jour automatique depuis GitHub Releases
-- Système de retour développeur intégré (→ GitHub Issues)
+**LDC n'est pas certifié** par un organisme accrédité (LNE, Infocert). Le commerçant reste responsable de la conformité de son établissement : renseignez-vous auprès de votre expert-comptable. Clause complète : [docs/MENTIONS_LEGALES.md](docs/MENTIONS_LEGALES.md).
 
----
+## Comment le projet est mené
+
+LDC est conçu et piloté par une seule personne, avec une démarche produit et un développement réalisé par des agents IA ([Claude Code](https://claude.com/claude-code)) dans un cadre contrôlé :
+
+- **Découpage** : chaque évolution part d'une issue au périmètre précis, limitée à une PR de taille relisible.
+- **Règles explicites** pour les agents ([CLAUDE.md](CLAUDE.md)) : montants en centimes entiers, migrations en ajout seul, hors ligne d'abord, aucune donnée personnelle de client.
+- **Intégration continue** : formatage, lint strict (`clippy -D warnings`), tests Rust et vérification TypeScript sur chaque PR.
+- **Double relecture** : relecture automatique par un agent dédié, puis relecture et validation humaines avant chaque merge.
+- **Code fiscal encadré** : toute modification de `src-tauri/src/nf525/` porte un label dédié et s'accompagne d'un test de vérification de chaîne ; la branche principale n'accepte que des PR.
 
 ## Stack technique
 
 | Couche | Technologie |
-|--------|-------------|
-| Shell bureau | [Tauri v2](https://tauri.app) — binaire natif, pas d'Electron |
-| Backend | Rust — chaîne fiscale, commandes SQLite, contrôle de stock |
-| Base de données | SQLite via [sqlx](https://github.com/launchbadge/sqlx) — embarquée, offline-first |
-| Frontend | React 18 + TypeScript |
-| État | [Zustand](https://github.com/pmndrs/zustand) |
-| Style | Tailwind CSS v4 avec tokens `@theme {}` — palette Material You |
-| Icônes | [Lucide React](https://lucide.dev) — bundlé, aucune dépendance CDN |
+|---|---|
+| Application de bureau | [Tauri v2](https://tauri.app) (binaire natif, sans Electron) |
+| Backend | Rust : chaîne fiscale, clôtures, impression ESC/POS |
+| Base de données | SQLite via [sqlx](https://github.com/launchbadge/sqlx), migrations versionnées |
+| Interface | React 19, TypeScript, Zustand, Tailwind CSS v4 |
+| Démo web | Même interface, branchée sur un backend en mémoire quand elle tourne hors de Tauri |
 
-> Tous les montants sont stockés et transmis en **centimes entiers** (i64 en Rust, number en TypeScript). `formatCents()` est le seul point de conversion, utilisé uniquement pour l'affichage.
+Tous les montants circulent en **centimes entiers**. Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
----
+## Développement
 
-## Démarrage rapide
-
-### Prérequis
-
-- [Rust](https://rustup.rs/) stable
-- [Node.js](https://nodejs.org/) 18+
-- [Prérequis Tauri CLI](https://tauri.app/start/prerequisites/) pour votre OS
-
-### Développement
+Prérequis : [Rust](https://rustup.rs/) stable, [Node.js](https://nodejs.org/) 20+, et les [prérequis Tauri](https://tauri.app/start/prerequisites/) de votre système.
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev      # application de bureau (base isolée ldc-dev.db)
+npm run dev            # interface seule dans le navigateur (mode démo)
+npm run tauri build    # installeur natif dans src-tauri/target/release/bundle/
 ```
 
-### Build production
+Vérifications lancées par la CI :
 
 ```bash
-npm run tauri build
+cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo test
+cd .. && npx tsc --noEmit
 ```
 
-Génère un installeur natif dans `src-tauri/target/release/bundle/`.
+## Documentation
 
----
-
-## Structure du projet
-
-```
-ldc/
-├── src/                             # Frontend React/TypeScript
-│   ├── App.tsx                      # Shell et machine d'état des écrans
-│   ├── components/layout/           # TopBar (horloge, thème), SideNav
-│   ├── features/
-│   │   ├── caisse/                  # Écran de vente — ProductGrid, CartPanel
-│   │   ├── paiement/                # Écran de paiement — addition partagée
-│   │   ├── confirmation/            # Ticket post-paiement
-│   │   ├── inventaire/              # Gestion du catalogue
-│   │   ├── cloture/                 # Clôture Z
-│   │   ├── historique/              # Historique des transactions
-│   │   ├── tables/                  # Plan de salle, tickets par table
-│   │   ├── cashiers/                # Écran de connexion, gestion caissiers
-│   │   ├── session/                 # Store de session
-│   │   ├── settings/                # Paramètres (onglets : établissement, matériel, conformité, à propos)
-│   │   ├── customer-display/        # Écran client (second moniteur)
-│   │   ├── onboarding/              # Assistant premier lancement (5 étapes)
-│   │   ├── tutorial/                # Visite guidée interactive (driver.js)
-│   │   ├── dev/                     # DevToolbar (debug builds uniquement)
-│   │   ├── print/                   # Modal et zone d'impression ESC/POS
-│   │   ├── feedback/                # Modal retour développeur
-│   │   └── updater/                 # Bannière de mise à jour
-│   ├── lib/
-│   │   ├── tauri.ts                 # Wrappers invoke() typés pour chaque commande Rust
-│   │   └── utils.ts                 # formatCents(), cn(), computeTva()
-│   └── types/                       # Interfaces TypeScript partagées
-│
-├── src-tauri/
-│   ├── src/
-│   │   ├── commands/                # Handlers Tauri (catalogue, caisse, transactions, compliance…)
-│   │   │   └── dev.rs               # Commandes dev uniquement (no-op en production)
-│   │   ├── db/
-│   │   │   ├── migrations/          # Migrations SQL ordonnées (001 → 014)
-│   │   │   └── models/              # Structs sqlx FromRow
-│   │   ├── nf525/                   # Logique chaîne de hachage + grands totaux
-│   │   ├── printer/                 # Génération ESC/POS
-│   │   └── lib.rs                   # Setup app, enregistrement des commandes
-│   ├── capabilities/                # Permissions Tauri v2 (main + customer-display)
-│   └── tauri.conf.json
-│
-└── docs/
-    ├── GUIDE_UTILISATEUR.md         # Manuel utilisateur en français
-    ├── ATTESTATION_NF525.md         # Template attestation de conformité
-    └── ARCHITECTURE.md              # Notes d'architecture technique
-```
-
----
-
-## Migrations base de données
-
-Les migrations s'appliquent automatiquement au démarrage via `sqlx::migrate!()`. Chaque fichier de `src-tauri/src/db/migrations/` est appliqué en ordre et tracé dans `_sqlx_migrations`.
-
-Migrations clés :
-- `001` — tables de base (sessions, journal, grands totaux)
-- `004` — transactions et lignes de transaction
-- `010` — salles et tables (plan de salle)
-- `011` — tickets ouverts (tickets par table)
-- `012` — caissiers, `cashier_id` et `station_id` sur les sessions
-- `013` — compte responsable par défaut (PIN : `0000`)
-- `014` — nettoyage des données de démo, insertion du catalogue initial propre
-
----
-
-## Gestion des caissiers
-
-À l'installation, l'assistant d'onboarding guide l'utilisateur avant la création du premier caissier. Un compte **Manager** (PIN `0000`) est créé par la migration initiale comme filet de sécurité.
-
-Pour gérer les caissiers (ajouter, modifier, supprimer, changer les PINs) : sur l'écran de connexion, cliquez sur **Gérer les caissiers** et saisissez le PIN responsable.
-
----
-
-## Mode développement
-
-En mode `npm run tauri dev`, le backend utilise `ldc-dev.db` au lieu de `ldc.db` — base complètement isolée de la production. Vous pouvez la supprimer à tout moment sans risque.
-
-Une barre **DEV** apparaît en bas à gauche avec un bouton **Reset onboarding** qui vide les settings et les caissiers pour retester le flux depuis le début. Elle est absente des builds de production (`cfg!(debug_assertions) = false`).
-
----
-
-## Notes fiscales (NF525)
-
-Ce logiciel cible la conformité NF525 pour le marché français :
-- Chaque transaction `VENTE` et `AVOIR` est ajoutée à une chaîne de hachage SHA-256
-- Le journal est append-only ; aucun enregistrement ne peut être modifié après création
-- La commande `verify_chain` revalide toute la chaîne et signale le premier maillon cassé
-- La clôture Z enregistre les grands totaux et verrouille la session
-- L'export archive JSON permet de conserver l'intégralité des données fiscales 6 ans
-
-> **Avertissement — NF525 :** LDC implémente les mécanismes techniques requis par NF525, mais n'a pas obtenu de certification officielle par un organisme accrédité AFNOR. L'utilisateur reste seul responsable de la conformité fiscale de son établissement. Consultez un expert-comptable pour toute question fiscale. Voir [docs/MENTIONS_LEGALES.md](docs/MENTIONS_LEGALES.md) pour la clause de non-responsabilité complète.
-
----
+- [Guide utilisateur](docs/GUIDE_UTILISATEUR.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Modèle d'attestation](docs/ATTESTATION_NF525.md)
+- [Mentions légales](docs/MENTIONS_LEGALES.md)
 
 ## Licence
 
-LDC est distribué sous licence **MIT** — voir [LICENSE](LICENSE).
+[MIT](LICENSE). Le logiciel est fourni « tel quel », sans garantie, y compris en matière fiscale.
 
-Le logiciel est fourni "tel quel", sans garantie d'aucune sorte. L'éditeur décline toute responsabilité pour les dommages résultant de son utilisation, y compris en matière fiscale. Voir [docs/MENTIONS_LEGALES.md](docs/MENTIONS_LEGALES.md).
+## Auteur
 
----
+Conçu et piloté par [aizo-groove](https://github.com/aizo-groove).
 
-## Soutenir le projet
-
-LDC est gratuit et open-source. Si vous l'utilisez au quotidien : [ko-fi.com/aizogroove](https://ko-fi.com/aizogroove)
+LDC est gratuit. S'il vous rend service, vous pouvez soutenir le projet sur [Ko-fi](https://ko-fi.com/aizogroove).
