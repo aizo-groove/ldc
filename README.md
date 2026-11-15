@@ -124,7 +124,6 @@ cd .. && npx tsc --noEmit
 
 ## Auteur
 
-Conçu et piloté par **Enzo Schwander**, product manager et ingénieur.
-<!-- Lien LinkedIn à ajouter -->
+Conçu et piloté par [aizo-groove](https://github.com/aizo-groove).
 
 LDC est gratuit. S'il vous rend service, vous pouvez soutenir le projet sur [Ko-fi](https://ko-fi.com/aizogroove).
