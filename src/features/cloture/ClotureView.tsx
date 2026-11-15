@@ -53,19 +53,17 @@ function TvaRow({ label, rate, tva_cents, ht_cents }: TvaRowProps) {
 interface PaymentCardProps {
   label: string;
   cents: number;
-  count: number;
   borderClass: string;
   iconClass: string;
   icon: React.ReactNode;
 }
 
-function PaymentCard({ label, cents, count, borderClass, iconClass, icon }: PaymentCardProps) {
+function PaymentCard({ label, cents, borderClass, iconClass, icon }: PaymentCardProps) {
   return (
     <div className={cn("flex-1 bg-surface-container p-4 rounded-xl border-l-4", borderClass)}>
       <div className={cn("mb-3", iconClass)}>{icon}</div>
       <p className="text-[10px] text-outline uppercase tracking-widest mb-1 select-none">{label}</p>
       <p className="text-xl font-black text-on-surface">{formatCents(cents)}</p>
-      <p className="text-xs text-outline mt-1">{count} transaction{count > 1 ? "s" : ""}</p>
     </div>
   );
 }
@@ -302,7 +300,6 @@ export function ClotureView({ onDone }: ClotureViewProps) {
                 <PaymentCard
                   label="Carte Bancaire"
                   cents={rapport.pay_cb}
-                  count={0}
                   borderClass="border-primary"
                   iconClass="text-primary"
                   icon={<CreditCard size={18} />}
@@ -310,7 +307,6 @@ export function ClotureView({ onDone }: ClotureViewProps) {
                 <PaymentCard
                   label="Espèces"
                   cents={rapport.pay_especes}
-                  count={0}
                   borderClass="border-secondary"
                   iconClass="text-secondary"
                   icon={<Banknote size={18} />}
@@ -318,7 +314,6 @@ export function ClotureView({ onDone }: ClotureViewProps) {
                 <PaymentCard
                   label="Chèques"
                   cents={rapport.pay_cheque}
-                  count={0}
                   borderClass="border-outline"
                   iconClass="text-outline"
                   icon={<FileCheck size={18} />}
@@ -405,8 +400,8 @@ export function ClotureView({ onDone }: ClotureViewProps) {
                   Action irréversible — NF525
                 </p>
                 <p className="text-xs text-on-surface leading-relaxed">
-                  La clôture Z verrouille définitivement la session et génère un
-                  enregistrement certifié. Cette opération ne peut pas être annulée.
+                  La clôture Z verrouille définitivement la session et enregistre ses
+                  totaux, chaînés aux clôtures précédentes. Cette opération ne peut pas être annulée.
                 </p>
               </div>
             </div>

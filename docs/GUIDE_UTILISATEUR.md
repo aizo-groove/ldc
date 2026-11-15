@@ -210,7 +210,7 @@ La clôture Z est l'opération de **fin de journée**, **obligatoire** et **irr�
 
 Tapez **VALIDER LA CLÔTURE ET ARCHIVER**. Le logiciel :
 1. Verrouille définitivement la session
-2. Génère un enregistrement certifié NF525 avec hash
+2. Enregistre les totaux de la journée, chaînés par hash aux clôtures précédentes
 3. Cumule les grands totaux depuis l'ouverture du commerce
 4. Revient à l'écran de vente, prêt pour la prochaine journée
 
@@ -344,7 +344,7 @@ Oui, pour les produits dont le suivi de stock est activé. Chaque vente validée
 La fonction avoir (remboursement) est prévue dans une version prochaine.
 
 **Le logiciel est-il conforme NF525 ?**
-LDC Caisse implémente la chaîne de hachage SHA-256 obligatoire, le journal d'audit immuable et la clôture Z certifiée conformément à l'article 88 de la loi de finances 2016. Une attestation de conformité est disponible depuis **Paramètres → Conformité NF525**.
+LDC vise la conformité NF525 : il implémente la chaîne de hachage SHA-256 des transactions, le journal d'audit en ajout seul, la clôture Z chaînée avec grands totaux perpétuels et les duplicatas tracés. Il **n'est pas certifié** par un organisme accrédité. Le document pré-rempli depuis **Paramètres → Conformité NF525** décrit ces mécanismes, mais ne remplace pas un certificat. Renseignez-vous auprès de votre expert-comptable sur les justificatifs exigés pour votre établissement.
 
 **Comment sauvegarder mes données ?**
 Utilisez **Paramètres → Conformité NF525 → Base de données SQLite** pour localiser le fichier `ldc.db` et configurez votre outil de sauvegarde habituel (Time Machine recommandé sur macOS).

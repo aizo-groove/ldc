@@ -101,8 +101,7 @@ Date :
 
 ---
 
-*Ce document ne constitue pas une certification officielle par un organisme tiers.
-La norme NF525 prévoit la possibilité d'une auto-déclaration pour les logiciels
-open-source sous réserve que les mécanismes techniques requis soient effectivement
-en place. Consultez votre expert-comptable ou le service des impôts de votre
-département pour toute question relative à votre situation particulière.*
+*Ce document décrit les mécanismes de sécurisation implémentés par LDC. Il ne constitue
+pas un certificat délivré par un organisme accrédité, et LDC n'est pas certifié NF525.
+Consultez votre expert-comptable ou le service des impôts de votre département sur les
+justificatifs exigés pour votre établissement.*
