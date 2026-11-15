@@ -127,6 +127,23 @@ export const deleteTableOrder = (tableId: string): Promise<void> =>
 export const markSentToKitchen = (tableId: string): Promise<void> =>
   invoke("mark_sent_to_kitchen", { tableId });
 
+// ── Notes en attente (tickets ouverts sans table) ─────────
+
+export const listHeldOrders = (): Promise<OpenOrderFull[]> => invoke("list_held_orders");
+
+/** Crée une note (`id` null) ou remplace les lignes et le libellé d'une note existante. */
+export const saveHeldOrder = (
+  id: string | null,
+  sessionId: string | null,
+  label: string | null,
+  lines: OpenOrderLineInput[],
+): Promise<OpenOrderFull> => invoke("save_held_order", { id, sessionId, label, lines });
+
+export const renameHeldOrder = (id: string, label: string | null): Promise<void> =>
+  invoke("rename_held_order", { id, label });
+
+export const deleteHeldOrder = (id: string): Promise<void> => invoke("delete_held_order", { id });
+
 // ── Tables ────────────────────────────────────────────────
 
 import type { Room, RestaurantTable } from "@/types/table";

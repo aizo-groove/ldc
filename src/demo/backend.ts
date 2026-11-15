@@ -71,6 +71,8 @@ const state = {
     table("t8", "room-terrasse", "E3", 4, "square", 400, 400),
   ] as RestaurantTable[],
   orders: new Map<string, OpenOrderFull>(),
+  held: new Map<string, OpenOrderFull>(),
+  heldCounter: 0,
 };
 
 function table(
@@ -93,6 +95,8 @@ function saveTableOrder(a: Args): OpenOrderFull {
     sent_to_kitchen: existing?.sent_to_kitchen ?? 0,
     created_at: existing?.created_at ?? now(),
     updated_at: now(),
+    held_no: null,
+    label: null,
   };
   const lines: OpenOrderLine[] = (a.lines as OpenOrderLineInput[]).map((l, i) => ({
     ...l,
@@ -102,6 +106,37 @@ function saveTableOrder(a: Args): OpenOrderFull {
   }));
   const full = { order, lines };
   state.orders.set(tableId, full);
+  return full;
+}
+
+// ── Notes en attente ──────────────────────────────────────────
+
+function cleanLabel(label: unknown): string | null {
+  const l = typeof label === "string" ? label.trim() : "";
+  return l || null;
+}
+
+function saveHeldOrder(a: Args): OpenOrderFull {
+  const id = a.id as string | null;
+  const existing = id ? state.held.get(id) : undefined;
+  if (id && !existing) throw "Note en attente introuvable";
+  const order: OpenOrder = {
+    id: existing?.order.id ?? uuid(),
+    table_id: null,
+    session_id: (a.sessionId as string | null) ?? null,
+    note: null,
+    covers: 0,
+    sent_to_kitchen: 0,
+    created_at: existing?.order.created_at ?? now(),
+    updated_at: now(),
+    held_no: existing?.order.held_no ?? ++state.heldCounter,
+    label: cleanLabel(a.label),
+  };
+  const lines: OpenOrderLine[] = (a.lines as OpenOrderLineInput[]).map((l, i) => ({
+    ...l, id: uuid(), order_id: order.id, line_no: i + 1,
+  }));
+  const full = { order, lines };
+  state.held.set(order.id, full);
   return full;
 }
 
@@ -450,6 +485,18 @@ export async function handle(cmd: string, payload?: unknown): Promise<unknown> {
       return null;
     }
     case "delete_table_order": state.orders.delete(a.tableId as string); return null;
+    // Notes en attente
+    case "list_held_orders":
+      return [...state.held.values()].sort((x, y) => x.order.created_at.localeCompare(y.order.created_at));
+    case "save_held_order": return saveHeldOrder(a);
+    case "rename_held_order": {
+      const h = state.held.get(a.id as string);
+      if (!h) throw "Note en attente introuvable";
+      h.order.label = cleanLabel(a.label);
+      return null;
+    }
+    case "delete_held_order": state.held.delete(a.id as string); return null;
+
     // Bon cuisine : accepté sans impression (pas d'imprimante dans un navigateur)
     case "print_kitchen_escpos": return null;
 

@@ -79,6 +79,10 @@ pub fn run() {
             commands::open_orders::save_table_order,
             commands::open_orders::delete_table_order,
             commands::open_orders::mark_sent_to_kitchen,
+            commands::held_orders::list_held_orders,
+            commands::held_orders::save_held_order,
+            commands::held_orders::rename_held_order,
+            commands::held_orders::delete_held_order,
             // Printers
             commands::printers::list_printers,
             commands::printers::create_printer,
