@@ -9,6 +9,7 @@ import { InventaireView } from "@/features/inventaire/InventaireView";
 import { ClotureView } from "@/features/cloture/ClotureView";
 import { HistoriqueView } from "@/features/historique/HistoriqueView";
 import { useCartStore } from "@/features/caisse/store";
+import { useHeldStore } from "@/features/caisse/heldStore";
 import { useSessionStore } from "@/features/session/store";
 import { useSettingsStore } from "@/features/settings/store";
 import { SettingsView } from "@/features/settings/SettingsView";
@@ -187,6 +188,9 @@ export default function App() {
       });
 
       clearCart();
+
+      // Vente directe d'une note en attente reprise : la note est encaissée, on la supprime
+      if (!tableContext) await useHeldStore.getState().closeActive();
 
       if (tableContext) {
         useCartStore.getState().restoreParked();

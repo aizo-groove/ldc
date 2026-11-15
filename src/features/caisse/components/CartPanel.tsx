@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Trash2, Tag, CreditCard } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Trash2, CreditCard, PauseCircle, Pencil, Layers } from "lucide-react";
 import { formatCents } from "@/lib/utils";
 import { useCartStore } from "../store";
 import { useCatalogueStore } from "@/features/catalogue/store";
 import { CartItem } from "./CartItem";
 import type { CartItem as CartItemType } from "../store";
+import { useHeldStore } from "../heldStore";
+import { useSessionStore } from "@/features/session/store";
+import { HeldOrdersPanel, LabelEditor } from "./HeldOrdersPanel";
 
 interface CartPanelProps {
   onPay: () => void;
@@ -23,6 +26,27 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
   const increment = useCartStore((s) => s.increment);
   const decrement = useCartStore((s) => s.decrement);
   const clear = useCartStore((s) => s.clear);
+
+  const sessionId = useSessionStore((s) => s.session?.id ?? null);
+  const { notes, active, load, hold, resume, rename, remove, closeActive } = useHeldStore();
+  // La note reprise reste en base mais n'apparaît pas dans la liste
+  const waiting = notes.filter((n) => n.order.id !== active?.id);
+  const [showHeld, setShowHeld] = useState(false);
+  const [editingActive, setEditingActive] = useState(false);
+  const [heldError, setHeldError] = useState<string | null>(null);
+
+  useEffect(() => { load(); }, [load]);
+
+  const run = (action: () => Promise<void>) => {
+    setHeldError(null);
+    action().catch((e) => setHeldError(String(e)));
+  };
+
+  // Vider abandonne aussi la note reprise
+  const handleClear = () => {
+    clear();
+    run(closeActive);
+  };
 
   const catalogueProducts = useCatalogueStore((s) => s.products);
 
@@ -43,18 +67,64 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
   const activeLineId = items.length > 0 ? items[items.length - 1].lineId : null;
 
   return (
-    <section id="tutorial-cart" className="col-span-5 flex flex-col overflow-hidden bg-surface-container-lowest">
+    <section id="tutorial-cart" className="relative col-span-5 flex flex-col overflow-hidden bg-surface-container-lowest">
       {/* En-tête */}
-      <div className="p-6 flex items-center justify-between border-b border-outline-variant/10">
-        <h2 className="text-xl font-bold tracking-tight uppercase select-none">
-          Panier Actuel
-        </h2>
-        {itemCount > 0 && (
-          <span className="bg-surface-container-high px-3 py-1 rounded-full text-xs font-bold text-primary select-none">
-            {itemCount} ARTICLE{itemCount > 1 ? "S" : ""}
-          </span>
+      <div className="p-6 flex items-center justify-between gap-3 border-b border-outline-variant/10">
+        {active ? (
+          <button
+            onClick={() => setEditingActive((v) => !v)}
+            className="flex items-center gap-2 min-w-0 text-left select-none"
+            title="Renommer la note"
+          >
+            <span className="shrink-0 px-2 py-0.5 rounded-lg bg-primary/15 text-primary text-lg font-black">
+              #{active.held_no ?? "?"}
+            </span>
+            <span className="text-xl font-bold tracking-tight uppercase truncate">
+              {active.label ?? "Note reprise"}
+            </span>
+            <Pencil size={14} className="shrink-0 text-outline" />
+          </button>
+        ) : (
+          <h2 className="text-xl font-bold tracking-tight uppercase select-none">
+            Panier Actuel
+          </h2>
         )}
+        <div className="flex items-center gap-2 shrink-0">
+          {itemCount > 0 && (
+            <span className="bg-surface-container-high px-3 py-1 rounded-full text-xs font-bold text-primary select-none">
+              {itemCount} ARTICLE{itemCount > 1 ? "S" : ""}
+            </span>
+          )}
+          {waiting.length > 0 && (
+            <button
+              onClick={() => setShowHeld(true)}
+              className="flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1 rounded-full text-xs font-black uppercase hover:brightness-110 active:scale-95 transition-all"
+            >
+              <Layers size={14} /> En attente ({waiting.length})
+            </button>
+          )}
+        </div>
       </div>
+
+      {active && editingActive && (
+        <div className="px-6 py-3 border-b border-outline-variant/10">
+          <LabelEditor
+            initial={active.label}
+            onSave={(label) => { run(() => rename(active.id, label)); setEditingActive(false); }}
+            onCancel={() => setEditingActive(false)}
+          />
+        </div>
+      )}
+
+      {showHeld && (
+        <HeldOrdersPanel
+          notes={waiting}
+          onResume={(note) => { setShowHeld(false); run(() => resume(note, sessionId)); }}
+          onRename={(id, label) => run(() => rename(id, label))}
+          onDelete={(id) => run(() => remove(id))}
+          onClose={() => setShowHeld(false)}
+        />
+      )}
 
       {/* Liste des articles */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -107,9 +177,9 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
         </div>
 
         {/* Erreur stock */}
-        {(stockError || incrementError) && (
+        {(stockError || incrementError || heldError) && (
           <div className="bg-error/10 border border-error/30 rounded-xl px-4 py-2 text-error text-xs font-bold">
-            {stockError ?? incrementError}
+            {stockError ?? incrementError ?? heldError}
           </div>
         )}
 
@@ -117,7 +187,7 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
         <div className="flex gap-4 pt-2">
           {/* Vider panier */}
           <button
-            onClick={clear}
+            onClick={handleClear}
             disabled={items.length === 0}
             className="flex-1 h-20 bg-error-container text-on-error-container rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"
           >
@@ -127,19 +197,16 @@ export function CartPanel({ onPay, stockError, onClearStockError }: CartPanelPro
             </span>
           </button>
 
-          {/* Fidélité (bientôt) */}
-          <div className="relative flex-1">
-            <button
-              disabled
-              className="w-full h-20 bg-surface-container-highest rounded-xl flex flex-col items-center justify-center gap-1 opacity-40 cursor-not-allowed"
-            >
-              <Tag size={22} />
-              <span className="text-xs font-black uppercase tracking-widest">Fidélité</span>
-            </button>
-            <span className="absolute -top-2 -right-2 bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full">
-              Bientôt
-            </span>
-          </div>
+          {/* Mettre en attente : 1 clic, numéro et résumé automatiques */}
+          <button
+            id="tutorial-hold-btn"
+            onClick={() => run(() => hold(sessionId))}
+            disabled={items.length === 0}
+            className="flex-1 h-20 bg-surface-container-highest text-on-surface rounded-xl flex flex-col items-center justify-center gap-1 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <PauseCircle size={22} />
+            <span className="text-xs font-black uppercase tracking-widest">En attente</span>
+          </button>
 
           {/* PAYER */}
           <button
