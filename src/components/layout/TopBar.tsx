@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Printer, User, RefreshCw, Sun, Moon } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useSettingsStore } from "@/features/settings/store";
+import { IS_DEMO } from "@/demo";
+import { DemoBanner } from "@/demo/DemoBanner";
 
 interface TopBarProps {
   cashierName?: string;
@@ -30,17 +32,26 @@ export function TopBar({ cashierName = "—", onSwitchCashier, onPrinterSettings
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
+  // Démo web : signale la TopBar pour masquer le bandeau flottant (le bandeau passe dans la barre)
+  useEffect(() => {
+    if (!IS_DEMO) return;
+    document.body.dataset.topbar = "1";
+    return () => { delete document.body.dataset.topbar; };
+  }, []);
+
   return (
     <header className="fixed top-0 w-full h-16 flex justify-between items-center px-6 z-50 bg-surface-container-low">
-      <div className="flex items-baseline gap-2 select-none">
+      <div className="flex shrink-0 items-baseline gap-2 select-none">
         <h1 className="text-xl font-black text-on-surface tracking-tighter">LDC POS</h1>
         {version && (
           <span className="text-[10px] font-bold text-outline tracking-widest">v{version}</span>
         )}
       </div>
 
+      {IS_DEMO && <DemoBanner variant="inline" />}
+
       {/* Droite : actions + profil */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={onPrinterSettings}
           aria-label="Paramètres imprimante"

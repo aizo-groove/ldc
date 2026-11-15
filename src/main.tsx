@@ -12,7 +12,7 @@ function render() {
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       {isCustomerDisplay ? <CustomerDisplayView /> : <App />}
-      {IS_DEMO && !isCustomerDisplay && <DemoBanner />}
+      {IS_DEMO && !isCustomerDisplay && <DemoBanner variant="floating" />}
     </React.StrictMode>,
   );
 }
