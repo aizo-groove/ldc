@@ -409,8 +409,9 @@ export async function handle(cmd: string, payload?: unknown): Promise<unknown> {
       return room;
     }
     case "delete_room":
+      // Comme en SQL (ON DELETE SET NULL) : les tables restent, sans salle
       state.rooms = state.rooms.filter((r) => r.id !== a.id);
-      state.tables = state.tables.filter((t) => t.room_id !== a.id);
+      for (const t of state.tables) if (t.room_id === a.id) t.room_id = null;
       return null;
     case "list_tables": return state.tables;
     case "create_table": {
