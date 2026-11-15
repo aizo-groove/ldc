@@ -152,7 +152,9 @@ export default function App() {
 
   const openPaymentFromTable = (tableId: string) => {
     setTableContext({ tableId });
-    setScreen({ type: "paiement", orderNumber: ++orderCounter, totalTtc });
+    // Le panier vient d'être rempli depuis la table dans ce même clic : lire le
+    // total à jour dans le store, pas la valeur du dernier rendu (périmée).
+    setScreen({ type: "paiement", orderNumber: ++orderCounter, totalTtc: useCartStore.getState().totalTtc() });
   };
 
   const validatePayment = async (payments: PaymentInput[], groups: PersonGroup[]): Promise<void> => {
@@ -187,6 +189,7 @@ export default function App() {
       clearCart();
 
       if (tableContext) {
+        useCartStore.getState().restoreParked();
         await deleteTableOrder(tableContext.tableId);
         await updateTableStatus(tableContext.tableId, "libre");
         useTablesStore.getState().load();
@@ -298,7 +301,15 @@ export default function App() {
         <PaymentView
           totalTtc={screen.totalTtc}
           orderNumber={screen.orderNumber}
-          onBack={() => { setPaymentError(null); setScreen({ type: "caisse" }); }}
+          onBack={() => {
+            setPaymentError(null);
+            // Retour depuis le règlement d'une table : rendre son panier à la Vente
+            if (tableContext) {
+              useCartStore.getState().restoreParked();
+              setTableContext(null);
+            }
+            setScreen({ type: "caisse" });
+          }}
           onValidate={validatePayment}
           error={paymentError}
         />
